@@ -27,7 +27,7 @@ def convolve(im, k):
 
     Params:
         im (PIL.Image): grayscale image
-        k (np.array): convolution kernel
+        k (2d np.array): convolution kernel
 
     Returns:
         imOut (PIL.Image): resulting image
@@ -35,13 +35,14 @@ def convolve(im, k):
     pass
 
 # TODO
-def convolve_separable(im, k):
+def convolve_separable(im, kx, ky):
     '''
-    Given grayscale image, convolve with a separable kernel
+    Given grayscale image, convolve with a separable kernel k = kx^T * ky
 
     Params:
         im (PIL.Image): grayscale image
-        k (np.array): separable convolution kernel (k = kx^T * ky)
+        kx (np.array): kernel in x direction
+        ky (Np.array): kernel in y direction
     
     Returns:
         imOut (PIL.Image): resulting image
