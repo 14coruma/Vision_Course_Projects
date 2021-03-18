@@ -1,1 +1,2 @@
-# zc11-amcorum-hanjos-zhangkf
+# Assignment 1
+Andrew Corum, Josep Han, Kenneth Zhang, Zheng Chen
