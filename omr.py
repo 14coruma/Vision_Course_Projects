@@ -15,7 +15,10 @@ import numpy as np
 from PIL import Image
 
 TEMPLATE_DIR = "./templates/"
-TEMPLATE_STAVE_DIST = 5 # TODO: Figure out the actual distance of staves in templates
+# TODO: Figure out the actual distance of staves in templates
+# Hopefully we can just inspect the sample images to figure this out
+# If not, we might need to write some code to compute it.... but hopefully not
+TEMPLATE_STAVE_DIST = 5 
 
 # TODO
 def convolve(im, k):
