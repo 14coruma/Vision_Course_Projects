@@ -7,6 +7,7 @@
 #
 # References used:
 # - PIL docs: https://pillow.readthedocs.io/en/stable/
+# - 
 
 import sys
 import os
@@ -20,28 +21,8 @@ TEMPLATE_DIR = "./templates/"
 # If not, we might need to write some code to compute it.... but hopefully not
 TEMPLATE_STAVE_DIST = 5 
 
-# TODO
+# TODO: Currently padding with zeros. Change later if necessary (but this might be fine)
 def convolve(image,kernel,padding =0):
-    
-    kernel = np.flipud(np.fliplr(kernel))
-    xklen = kernel.shape[0]
-    yklen = kernel.shape[1]
-    ximlen = image.shape[0]
-    yimlen=image.shape[1]
-    if padding != 0:
-        padded_image = np.zeros((int(ximlen) + padding * 2,int(yimlen) +padding*2))
-        padded_image[padding:padding+ximlen,padding:padding+yimlen] = image
-    else:
-        # else:
-        padded_image = image
-    final_image = np.zeros((padded_image.shape[0] - padding ,padded_image.shape[1] - padding))
-    for i in range(0, padded_image.shape[0]):
-        for j in range(0,padded_image.shape[1]):
-            try:
-                final_image[i,j] = (padded_image[i:i+xklen,j:j+yklen] * kernel).sum()
-            except:
-                break    
-    return final_image
     '''
     Given grayscale image, convolve with a kernel
 
@@ -52,11 +33,26 @@ def convolve(image,kernel,padding =0):
     Returns:
         imOut (PIL.Image): resulting image
     '''
-    # pass
+    image = np.array(image)
+    kernel = np.flipud(np.fliplr(kernel))
+    xklen = kernel.shape[0]
+    yklen = kernel.shape[1]
+    ximlen = image.shape[0]
+    yimlen = image.shape[1]
+    if padding != 0:
+        padded_image = np.zeros((int(ximlen) + padding * 2,int(yimlen) +padding*2))
+        padded_image[padding:padding+ximlen,padding:padding+yimlen] = image
+    else:
+        padded_image = image
+    final_image = np.zeros((padded_image.shape[0] - padding ,padded_image.shape[1] - padding))
+    for i in range(0, padded_image.shape[0]):
+        for j in range(0,padded_image.shape[1]):
+            try:
+                final_image[i,j] = (padded_image[i:i+xklen,j:j+yklen] * kernel).sum()
+            except:
+                break    
+    return Image.fromarray(final_image)
 
-
-
-# TODO
 def convolve_separable(im, kx, ky):    
     '''
     Given grayscale image, convolve with a separable kernel k = kx^T * ky
@@ -69,8 +65,6 @@ def convolve_separable(im, kx, ky):
     Returns:
         imOut (PIL.Image): resulting image
     '''
-    # pass
-
     # kx = np.transpose(kx)
     output = convolve(im,kx)
     output = convolve(output,ky)
