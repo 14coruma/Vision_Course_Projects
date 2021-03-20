@@ -22,36 +22,36 @@ TEMPLATE_DIR = "./templates/"
 TEMPLATE_STAVE_DIST = 5 
 
 # TODO: Currently padding with zeros. Change later if necessary (but this might be fine)
-def convolve(image,kernel,padding =0):
-    '''
-    Given grayscale image, convolve with a kernel
-
-    Params:
-        im (PIL.Image): grayscale image
-        k (2d np.array): convolution kernel
-
-    Returns:
-        imOut (PIL.Image): resulting image
-    '''
-    image = np.array(image)
+def convolve(image, kernel):
+    
     kernel = np.flipud(np.fliplr(kernel))
     xklen = kernel.shape[0]
     yklen = kernel.shape[1]
     ximlen = image.shape[0]
-    yimlen = image.shape[1]
-    if padding != 0:
-        padded_image = np.zeros((int(ximlen) + padding * 2,int(yimlen) +padding*2))
-        padded_image[padding:padding+ximlen,padding:padding+yimlen] = image
-    else:
-        padded_image = image
-    final_image = np.zeros((padded_image.shape[0] - padding ,padded_image.shape[1] - padding))
-    for i in range(0, padded_image.shape[0]):
-        for j in range(0,padded_image.shape[1]):
+    yimlen=image.shape[1]
+    # xpadding
+    xpadding = xklen - 1
+    ypadding = yklen - 1
+    # if padding != 0:
+    #     padded_image = np.zeros((int(ximlen) + padding * 2,int(yimlen) +padding*2))
+    #     padded_image[padding:padding+ximlen,padding:padding+yimlen] = image
+    # else:
+        # else:
+        # padded_image = image
+
+    
+    padded_image = np.zeros((int(ximlen) + xpadding * 2,int(yimlen) +ypadding*2))
+    padded_image[xpadding:xpadding+ximlen,ypadding:ypadding+yimlen] = image
+    # final_image = np.zeros((padded_image.shape[0] - padding ,padded_image.shape[1] - padding))
+    final_image = np.zeros((ximlen,yimlen))
+    # final_image = np.zeros_like(image)
+    for i in range(xpadding, padded_image.shape[0]+xpadding):
+        for j in range(ypadding,padded_image.shape[1]+ypadding):
             try:
-                final_image[i,j] = (padded_image[i:i+xklen,j:j+yklen] * kernel).sum()
+                final_image[i-xpadding,j-ypadding] = (padded_image[i:i+xklen,j:j+yklen] * kernel).sum()
             except:
                 break    
-    return Image.fromarray(final_image)
+    return final_image
 
 def convolve_separable(im, kx, ky):    
     '''
