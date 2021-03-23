@@ -51,7 +51,7 @@ def convolve(image,kernel,padding =0):
                 break    
     return final_image
 
-# TODO: FIX
+@njit()
 def convolve_separable(im, kx, ky):    
     '''
     Given grayscale image, convolve with a separable kernel k = kx^T * ky
@@ -64,8 +64,7 @@ def convolve_separable(im, kx, ky):
     Returns:
         imOut (2d np.array): resulting image
     '''
-    kx = kx.T
-    output = convolve(im,kx)
+    output = convolve(im,kx.T)
     output = convolve(output,ky)
     return output 
 
@@ -87,7 +86,7 @@ def hough_voting(edges):
     # Prepare Hough space accumulator (row, spacing)
     # Max starting row -> height-5
     # Max spacing -> height//4
-    acc = np.zeros((height-5, height//4))
+    acc = np.zeros((height, height//4))
     # Fill accumulator (each edge pixel casts vote for possible (row, spacing)
     for r in range(height):
         if r%25 == 0: print("Iteration "+str(r)+"/"+str(height))
@@ -96,15 +95,16 @@ def hough_voting(edges):
             if edges[r,c] <= 0: continue
             # Possible starting staff rows
             for pRow in range(r):
-                # Possible spacing
-                minSpace, maxSpace = max((r-pRow)//4,1), (height-pRow)//4
+                # Possible spacing (betwee (r-pRow//4) and (height-pRow)//4)
+                minSpace, maxSpace = max((r-pRow)//4,4), (height-pRow)//4
                 for pSpace in range(minSpace, maxSpace):
                     # If distance between point and pRow is a multiple of pSpace:
                     if (r-pRow)%pSpace == 0: acc[pRow,pSpace] += 1
 
     # Find best spacing
     bestIndex = np.argmax(acc)
-    return bestIndex // (height//4), bestIndex % (height//4)
+    row, space = bestIndex // (height//4), bestIndex % (height//4)
+    return row, space
 
 # Reference (Sobel): https://en.wikipedia.org/wiki/Sobel_operator
 # Reference (Hough): Principles of Digital Image Processing (Burger, Burge 2009)
@@ -122,12 +122,9 @@ def detect_stave_distance(im):
         staveDist (int): spacing between staves
     '''
     # Apply Sobel edge detection
-    # TODO: Need to fix convolve_separable() first
-    #  sy1, sy2 = np.array([1,0,-1]), np.array([1,2,1])
-    #  edges = convolve_separable(im, sy1, sy2)
     # We only care about horizontal lines
-    sy = np.array([[1,2,1],[0,0,0],[-1,-2,-1]])
-    edges = convolve(im, sy)
+    sy1, sy2 = np.array([[1,0,-1]]), np.array([[1,2,1]])
+    edges = convolve_separable(im, sy1, sy2)
     row, staveDist = hough_voting(edges)
     print("Found stave distance {}, starting at row {}.".format(staveDist, row))
     return staveDist
