@@ -38,11 +38,11 @@ def convolve(image,kernel,padding =0):
     ximlen = image.shape[0]
     yimlen = image.shape[1]
     if padding != 0:
-        padded_image = np.zeros((int(ximlen) + padding * 2,int(yimlen) +padding*2), dtype=np.uint8)
+        padded_image = np.zeros((int(ximlen) + padding * 2,int(yimlen) +padding*2), dtype=np.int32)
         padded_image[padding:padding+ximlen,padding:padding+yimlen] = image
     else:
         padded_image = image
-    final_image = np.zeros((padded_image.shape[0] - padding, padded_image.shape[1] - padding), dtype=np.uint8)
+    final_image = np.zeros((padded_image.shape[0] - padding, padded_image.shape[1] - padding), dtype=np.int32)
     for i in range(0, padded_image.shape[0]):
         for j in range(0,padded_image.shape[1]):
             try:
@@ -68,6 +68,9 @@ def convolve_separable(im, kx, ky):
     output = convolve(output,ky)
     return output 
 
+# Reference (Hough): Principles of Digital Image Processing (Burger, Burge 2009)
+#   Pages 50-63
+# Reference (Hough): Course slides (from Canvas)
 @njit()
 def hough_voting(edges):
     '''
@@ -84,7 +87,7 @@ def hough_voting(edges):
     height, width = edges.shape
 
     # Prepare Hough space accumulator (row, spacing)
-    # Max starting row -> height-5
+    # Max starting row -> height
     # Max spacing -> height//4
     acc = np.zeros((height, height//4))
     # Fill accumulator (each edge pixel casts vote for possible (row, spacing)
@@ -94,27 +97,36 @@ def hough_voting(edges):
             # Only consider points that are part of a horizontal edge
             if edges[r,c] <= 0: continue
             # Possible starting staff rows
-            for pRow in range(r):
+            for pRow in range(1,r):
                 # Possible spacing (between (r-pRow)//4 and (height-pRow)//4)
+                # Where minSpace is assuming r is bottom staff, and where
+                # maxSpace is assuming bottom staff is at bottom of image
                 minSpace, maxSpace = max((r-pRow)//4,4), (height-pRow)//4
                 for pSpace in range(minSpace, maxSpace):
                     # If distance between point and pRow is a multiple of pSpace:
                     if (r-pRow)%pSpace == 0: acc[pRow,pSpace] += 1
 
     # Find best spacing
-    bestIndex = 0
-    for i in range(6):
-        bestIndex = np.argmax(acc)
-        row, space = bestIndex // (height//4), bestIndex % (height//4)
-        print(row,space,acc[row,space])
-        acc[row,space] = 0
+    bestIndex = np.argmax(acc)
     row, space = bestIndex // (height//4), bestIndex % (height//4)
+
     return row, space
+   
+# Reference (Canny): https://towardsdatascience.com/canny-edge-detection-step-by-step-in-python-computer-vision-b49c3a2d8123
+@njit()
+def non_maximal_supression(im):
+    # Apply non-maximal supression, in y direction only
+    newIm = np.zeros(im.shape, dtype=np.int32)
+    for r in range(1,im.shape[0]-1):
+        for c in range(im.shape[1]):
+            val = im[r,c]
+            valAbove = im[r-1,c]
+            valBelow = im[r+1,c]
+            if (val >= valAbove) and (val >= valBelow):
+                newIm[r,c] = val
+    return newIm
 
 # Reference (Sobel): https://en.wikipedia.org/wiki/Sobel_operator
-# Reference (Hough): Principles of Digital Image Processing (Burger, Burge 2009)
-#   Pages 50-63
-# Reference (Hough): Course slides (from Canvas)
 def detect_stave_distance(im):
     '''
     Given grayscale PIL.Image of sheet music, use Hough transform to find
@@ -127,13 +139,14 @@ def detect_stave_distance(im):
         staveDist (int): spacing between staves
     '''
     # Apply Smoothing and Sobel edge detection
-    # We only care about horizontal lines
-    gauss = np.array([[1,4,6,4,1],[4,16,24,16,4],[6,24,36,24,6],[4,16,26,16,4],[1,4,6,4,1]])/256
-    edges = convolve(im, gauss)
+    # We only care about horizontal lines, so just use gradient in y direction
+    #  gauss = np.array([[1,4,6,4,1],[4,16,24,16,4],[6,24,36,24,6],[4,16,26,16,4],[1,4,6,4,1]])/256
+    #  edges = convolve(im, gauss)
     sy1, sy2 = np.array([[1,0,-1]]), np.array([[1,2,1]])
-    edges = abs(convolve_separable(edges, sy1, sy2))
+    edges = abs(convolve_separable(im, sy1, sy2))
+    edges = non_maximal_supression(edges)
     row, staveDist = hough_voting(edges)
-    print("Found stave distance {}, starting at row {}.".format(staveDist, row))
+    print("Found stave distance {} at row {}".format(staveDist, row))
     return staveDist
 
 def scale_from_staves(im, staveDist):
@@ -209,7 +222,7 @@ if __name__ == '__main__':
     im = Image.open(sys.argv[1]).convert(mode='L')
 
     print("Detecting stave distance...")
-    staveDist = detect_stave_distance(np.array(im, dtype=np.uint8))
+    staveDist = detect_stave_distance(np.array(im, dtype=np.int32))
     imScaled, scale = scale_from_staves(im, staveDist)
     print("Detecting notes...")
     notes = detect_notes(np.array(imScaled), scale)
