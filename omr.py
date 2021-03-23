@@ -13,6 +13,7 @@ import sys
 import os
 import numpy as np
 from numba import njit
+from tqdm import tqdm
 
 from PIL import Image
 
@@ -84,7 +85,7 @@ def detect_stave_distance(im):
         im (PIL.Image): grayscale image of sheet music
 
     Returns:
-        staveDist (float): distance between staves
+        staveDist (float): spacing between staves
     '''
     # Apply Sobel edge detection
     # TODO: Canny edge detection for better results??
@@ -92,7 +93,7 @@ def detect_stave_distance(im):
     #  sy1, sy2 = np.array([1,0,-1]), np.array([1,2,1])
     #  edges = convolve_separable(im, sy1, sy2)
     # We only care about horizontal lines
-    sy = np.array([[1,2,1],[0,0,0],[-1,-2,-1]])/8
+    sy = np.array([[1,2,1],[0,0,0],[-1,-2,-1]])
     edges = np.array(convolve(im, sy))
     height, width = edges.shape
 
@@ -101,7 +102,8 @@ def detect_stave_distance(im):
     # Max spacing -> height//4
     acc = np.zeros((height-5, height//4))
     # Fill accumulator (each edge pixel casts vote for possible (row, spacing)
-    for r in range(height):
+    print
+    for r in tqdm(range(height), desc="Detecting stave distance..."):
         for c in range(width):
             # Only consider points that are part of a horizontal edge
             if edges[r,c] <= 0: continue
@@ -110,18 +112,15 @@ def detect_stave_distance(im):
                 # Possible spacing
                 minSpace, maxSpace = max((r-pRow)//4,1), (height-pRow)//4
                 for pSpace in range(minSpace, maxSpace):
-                    # If space between point and pRow is a multiple of pSpace:
+                    # If distance between point and pRow is a multiple of pSpace:
                     if (r-pRow)%pSpace == 0: acc[pRow,pSpace] += 1
-    # Find best two values
-    values = []
-    for i in range(2):
-        bestIndex = np.argmax(acc)
-        row, space = bestIndex // (height//4), bestIndex % (height//4)
-        values.append([row, space])
-        acc[row,space] = 0
-    print(values)
 
-    exit("DONE")
+    # Find best spacing
+    bestIndex = np.argmax(acc)
+    row, staveDist = bestIndex // (height//4), bestIndex % (height//4)
+    print("Found stave distance {}, starting at row {}.".format(staveDist, row))
+    
+    return staveDist
 
 # TODO
     print(im.height, height)
@@ -138,7 +137,8 @@ def scale_from_staves(im, staveDist):
         imScaled (PIL.Image): scaled grayscale image
         scale (float): image scaling factor
     '''
-    pass
+    scale = TEMPLATE_STAVE_DIST/staveDist
+    return im.resize((int(im.width*scale), int(im.height*scale))), scale
 
 # TODO
 def detect_notes(imScaled, scale):
