@@ -71,6 +71,17 @@ def convolve_separable(im, kx, ky):
 
 @njit()
 def hough_voting(edges):
+    '''
+    Given edge-detected image, using Sobel operator. Apply Hough transform.
+    Use 2D voting space (D1 = row of first line, D2 = spacing distance)
+
+    Params:
+        im (2d np.array): edge-detected image of sheet music
+
+    Returns:
+        row (int): row where top-voted stave appears
+        staveDist (int): spacing between staves
+    '''
     height, width = edges.shape
 
     # Prepare Hough space accumulator (row, spacing)
@@ -103,13 +114,12 @@ def detect_stave_distance(im):
     '''
     Given grayscale PIL.Image of sheet music, use Hough transform to find
     distance between staves.
-    Use 2D voting space (D1 = row of first line, D2 = spacing distance)
 
     Params:
         im (2d np.array): grayscale image of sheet music
 
     Returns:
-        staveDist (float): spacing between staves
+        staveDist (int): spacing between staves
     '''
     # Apply Sobel edge detection
     # TODO: Need to fix convolve_separable() first
