@@ -20,9 +20,8 @@ TEMPLATE_DIR = "./templates/"
 # Hopefully we can just inspect the sample images to figure this out
 # If not, we might need to write some code to compute it.... but hopefully not
 TEMPLATE_STAVE_DIST = 5 
-
-# TODO: Currently padding with zeros. Change later if necessary (but this might be fine)
-def convolve(image, kernel):
+# 
+def convolve(image, kernel, padtype = 'edge'):
     # kernel needs to be flipped horizontally and vertically before applying convolution kernel; else it becomes cross-correlation.
     kernel = np.flipud(np.fliplr(kernel))
     # x,y side kernel length will be used to determine the length of the image patch to convolve with the kernel.
@@ -39,8 +38,8 @@ def convolve(image, kernel):
 
     # begin to create the padded image: zero canvas the size of the image + padding sizes. 
     # Then copy the image onto the padded image.
-    padded_image = np.zeros((int(ximlen) + xpadding * 2,int(yimlen) +ypadding*2))
-    padded_image[xpadding:xpadding+ximlen,ypadding:ypadding+yimlen] = image
+    padded_image = image
+    padded_image = np.pad(padded_image,((xpadding,xpadding),(ypadding,ypadding)), padtype)
 
     # initialize final output image.
     final_image = np.zeros_like(padded_image)
@@ -49,7 +48,6 @@ def convolve(image, kernel):
         for j in range(0, padded_image.shape[1]):
             # apply the image patch with the kernel by matrix multiplication and the resulting total sum.
             try:
-                # final_image[i-xpadding,j-ypadding] = (padded_image[i:i+xklen,j:j+yklen] * kernel).sum()
                 final_image[i,j] = (padded_image[i:i+xklen,j:j+yklen] * kernel).sum()
             # when dimensions not equal, then the loop stops.
             except:
@@ -58,8 +56,7 @@ def convolve(image, kernel):
     final_image = final_image[xpadding:xpadding+ximlen,ypadding:ypadding+yimlen]
     # return final_image
     return final_image
-    # for i in range(xpadding, padded_image.shape[0]+xpadding):
-    #     for j in range(ypadding,padded_image.shape[1]+ypadding):
+
 
 
 # assume kx will be in its transpose form already when applying convolve_separable.
