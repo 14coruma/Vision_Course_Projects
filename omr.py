@@ -95,14 +95,19 @@ def hough_voting(edges):
             if edges[r,c] <= 0: continue
             # Possible starting staff rows
             for pRow in range(r):
-                # Possible spacing (betwee (r-pRow//4) and (height-pRow)//4)
+                # Possible spacing (between (r-pRow)//4 and (height-pRow)//4)
                 minSpace, maxSpace = max((r-pRow)//4,4), (height-pRow)//4
                 for pSpace in range(minSpace, maxSpace):
                     # If distance between point and pRow is a multiple of pSpace:
                     if (r-pRow)%pSpace == 0: acc[pRow,pSpace] += 1
 
     # Find best spacing
-    bestIndex = np.argmax(acc)
+    bestIndex = 0
+    for i in range(6):
+        bestIndex = np.argmax(acc)
+        row, space = bestIndex // (height//4), bestIndex % (height//4)
+        print(row,space,acc[row,space])
+        acc[row,space] = 0
     row, space = bestIndex // (height//4), bestIndex % (height//4)
     return row, space
 
@@ -121,10 +126,12 @@ def detect_stave_distance(im):
     Returns:
         staveDist (int): spacing between staves
     '''
-    # Apply Sobel edge detection
+    # Apply Smoothing and Sobel edge detection
     # We only care about horizontal lines
+    gauss = np.array([[1,4,6,4,1],[4,16,24,16,4],[6,24,36,24,6],[4,16,26,16,4],[1,4,6,4,1]])/256
+    edges = convolve(im, gauss)
     sy1, sy2 = np.array([[1,0,-1]]), np.array([[1,2,1]])
-    edges = convolve_separable(im, sy1, sy2)
+    edges = abs(convolve_separable(edges, sy1, sy2))
     row, staveDist = hough_voting(edges)
     print("Found stave distance {}, starting at row {}.".format(staveDist, row))
     return staveDist
