@@ -13,7 +13,6 @@ import sys
 import os
 import numpy as np
 from numba import njit
-from tqdm import tqdm
 
 from PIL import Image
 
@@ -21,36 +20,36 @@ TEMPLATE_DIR = "./templates/"
 TEMPLATE_STAVE_DIST = 12
 
 # TODO: Currently padding with zeros. Change later if necessary (but this might be fine)
+@njit()
 def convolve(image,kernel,padding =0):
     '''
     Given grayscale image, convolve with a kernel
 
     Params:
-        im (PIL.Image): grayscale image
+        im (2d np.array): grayscale image
         k (2d np.array): convolution kernel
 
     Returns:
-        imOut (PIL.Image): resulting image
+        imOut (2d np.array): resulting image
     '''
-    image = np.array(image)
     kernel = np.flipud(np.fliplr(kernel))
     xklen = kernel.shape[0]
     yklen = kernel.shape[1]
     ximlen = image.shape[0]
     yimlen = image.shape[1]
     if padding != 0:
-        padded_image = np.zeros((int(ximlen) + padding * 2,int(yimlen) +padding*2))
+        padded_image = np.zeros((int(ximlen) + padding * 2,int(yimlen) +padding*2), dtype=np.uint8)
         padded_image[padding:padding+ximlen,padding:padding+yimlen] = image
     else:
         padded_image = image
-    final_image = np.zeros((padded_image.shape[0] - padding ,padded_image.shape[1] - padding))
+    final_image = np.zeros((padded_image.shape[0] - padding, padded_image.shape[1] - padding), dtype=np.uint8)
     for i in range(0, padded_image.shape[0]):
         for j in range(0,padded_image.shape[1]):
             try:
                 final_image[i,j] = (padded_image[i:i+xklen,j:j+yklen] * kernel).sum()
             except:
                 break    
-    return Image.fromarray(final_image)
+    return final_image
 
 # TODO: FIX
 def convolve_separable(im, kx, ky):    
@@ -58,43 +57,20 @@ def convolve_separable(im, kx, ky):
     Given grayscale image, convolve with a separable kernel k = kx^T * ky
 
     Params:
-        im (PIL.Image): grayscale image
+        im (2d np.array): grayscale image
         kx (np.array): kernel in x direction
         ky (Np.array): kernel in y direction
     
     Returns:
-        imOut (PIL.Image): resulting image
+        imOut (2d np.array): resulting image
     '''
     kx = kx.T
     output = convolve(im,kx)
     output = convolve(output,ky)
     return output 
 
-# Reference (Sobel): https://en.wikipedia.org/wiki/Sobel_operator
-# Reference (Hough): Principles of Digital Image Processing (Burger, Burge 2009)
-#   Pages 50-63
-# Reference (Hough): Course slides (from Canvas)
-# TODO
-def detect_stave_distance(im):
-    '''
-    Given grayscale PIL.Image of sheet music, use Hough transform to find
-    distance between staves.
-    Use 2D voting space (D1 = row of first line, D2 = spacing distance)
-
-    Params:
-        im (PIL.Image): grayscale image of sheet music
-
-    Returns:
-        staveDist (float): spacing between staves
-    '''
-    # Apply Sobel edge detection
-    # TODO: Canny edge detection for better results??
-    # TODO: Need to fix convolve_separable() first
-    #  sy1, sy2 = np.array([1,0,-1]), np.array([1,2,1])
-    #  edges = convolve_separable(im, sy1, sy2)
-    # We only care about horizontal lines
-    sy = np.array([[1,2,1],[0,0,0],[-1,-2,-1]])
-    edges = np.array(convolve(im, sy))
+@njit()
+def hough_voting(edges):
     height, width = edges.shape
 
     # Prepare Hough space accumulator (row, spacing)
@@ -102,8 +78,8 @@ def detect_stave_distance(im):
     # Max spacing -> height//4
     acc = np.zeros((height-5, height//4))
     # Fill accumulator (each edge pixel casts vote for possible (row, spacing)
-    print
-    for r in tqdm(range(height), desc="Detecting stave distance..."):
+    for r in range(height):
+        if r%25 == 0: print("Iteration "+str(r)+"/"+str(height))
         for c in range(width):
             # Only consider points that are part of a horizontal edge
             if edges[r,c] <= 0: continue
@@ -117,13 +93,35 @@ def detect_stave_distance(im):
 
     # Find best spacing
     bestIndex = np.argmax(acc)
-    row, staveDist = bestIndex // (height//4), bestIndex % (height//4)
+    return bestIndex // (height//4), bestIndex % (height//4)
+
+# Reference (Sobel): https://en.wikipedia.org/wiki/Sobel_operator
+# Reference (Hough): Principles of Digital Image Processing (Burger, Burge 2009)
+#   Pages 50-63
+# Reference (Hough): Course slides (from Canvas)
+def detect_stave_distance(im):
+    '''
+    Given grayscale PIL.Image of sheet music, use Hough transform to find
+    distance between staves.
+    Use 2D voting space (D1 = row of first line, D2 = spacing distance)
+
+    Params:
+        im (2d np.array): grayscale image of sheet music
+
+    Returns:
+        staveDist (float): spacing between staves
+    '''
+    # Apply Sobel edge detection
+    # TODO: Need to fix convolve_separable() first
+    #  sy1, sy2 = np.array([1,0,-1]), np.array([1,2,1])
+    #  edges = convolve_separable(im, sy1, sy2)
+    # We only care about horizontal lines
+    sy = np.array([[1,2,1],[0,0,0],[-1,-2,-1]])
+    edges = convolve(im, sy)
+    row, staveDist = hough_voting(edges)
     print("Found stave distance {}, starting at row {}.".format(staveDist, row))
-    
     return staveDist
 
-# TODO
-    print(im.height, height)
 def scale_from_staves(im, staveDist):
     '''
     Given grayscale PIL.Image of sheet music, and distance between staves,
@@ -152,7 +150,7 @@ def detect_notes(imScaled, scale):
       - Compute Sobel edge maps with different scoring fn (see assignment pdf)
     
     Params:
-        imScaled (PIL.Image): scaled grayscale image of sheet music
+        imScaled (2d np.array): scaled grayscale image of sheet music
         scale (float): image scaling factor
 
     Returns:
@@ -196,8 +194,11 @@ if __name__ == '__main__':
     if len(sys.argv) < 2: exit("Error: missing filename")
     im = Image.open(sys.argv[1]).convert(mode='L')
 
-    staveDist = detect_stave_distance(im)
+    print("Detecting stave distance...")
+    staveDist = detect_stave_distance(np.array(im, dtype=np.uint8))
     imScaled, scale = scale_from_staves(im, staveDist)
-    notes = detect_notes(imScaled, scale)
+    print("Detecting notes...")
+    notes = detect_notes(np.array(imScaled), scale)
     visualize_notes(im, notes).save("detected.png")
     notes_to_txt(notes)
+    print("Done.")
