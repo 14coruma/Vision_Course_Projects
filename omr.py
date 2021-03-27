@@ -20,7 +20,6 @@ from PIL import Image
 TEMPLATE_DIR = "./templates/"
 TEMPLATE_STAVE_DIST = 12
 
-# TODO: Currently padding with zeros. Change later if necessary (but this might be fine)
 #  @njit()
 def convolve(image, kernel, padtype = 'edge'):
     # kernel needs to be flipped horizontally and vertically before applying convolution kernel; else it becomes cross-correlation.
@@ -61,37 +60,7 @@ def convolve(image, kernel, padtype = 'edge'):
     # for i in range(xpadding, padded_image.shape[0]+xpadding):
     #     for j in range(ypadding,padded_image.shape[1]+ypadding):
 
-#  def convolve(image,kernel,padding =0):
-    #  '''
-    #  Given grayscale image, convolve with a kernel
-#  
-    #  Params:
-        #  im (2d np.array): grayscale image
-        #  k (2d np.array): convolution kernel
-#  
-    #  Returns:
-        #  imOut (2d np.array): resulting image
-    #  '''
-    #  kernel = np.flipud(np.fliplr(kernel))
-    #  xklen = kernel.shape[0]
-    #  yklen = kernel.shape[1]
-    #  ximlen = image.shape[0]
-    #  yimlen = image.shape[1]
-    #  if padding != 0:
-        #  padded_image = np.zeros((int(ximlen) + padding * 2,int(yimlen) +padding*2), dtype=np.float64)
-        #  padded_image[padding:padding+ximlen,padding:padding+yimlen] = image
-    #  else:
-        #  padded_image = image
-    #  final_image = np.zeros((padded_image.shape[0] - padding, padded_image.shape[1] - padding), dtype=np.float64)
-    #  for i in range(0, padded_image.shape[0]):
-        #  for j in range(0,padded_image.shape[1]):
-            #  try:
-                #  final_image[i,j] = (padded_image[i:i+xklen,j:j+yklen] * kernel).sum()
-            #  except:
-                #  break    
-    #  return final_image
-
-@njit()
+# @njit()
 def convolve_separable(im, kx, ky):    
     '''
     Given grayscale image, convolve with a separable kernel k = kx^T * ky
@@ -162,7 +131,7 @@ def hough_voting(edges):
         for i in range(row-space*4, row+space*4):
             if i>0 and i<len(acc): acc[i] = 0
         row = np.argmax(acc)
-        rows.append(row+3) # Shift row down by 5. Needed because of gauss blur
+        rows.append(row+3) # Shift row down by 3. Needed because of gauss blur
     # Remove last row (this algorithm always adds 1 extra stave at row=0)
     rows.pop()
 
@@ -194,9 +163,9 @@ def detect_stave_distance(im):
         im (2d np.array): grayscale image of sheet music
 
     Returns:
-        staveDist (int): spacing between staves
+        staveDist (float): spacing between staves
+        rows (list): list of all stave starting rows
     '''
-    Image.fromarray(im).show()
     # Blur image with 5x5 gauss
     gauss = np.array([[1,4,7,4,1],[4,16,26,16,4],[7,26,41,26,7],[4,16,26,16,4],[1,4,7,4,1]])/273
     im = convolve(im, gauss)
@@ -208,18 +177,12 @@ def detect_stave_distance(im):
     # Sobel edge detection
     # We only care about horizontal lines, so just use gradient in y direction
     sy = np.array([[1,2,1],[0,0,0],[-1,-2,-1]])
-    #  sx = np.array([[1,0,-1],[2,0,-2],[1,0,-1]])
-    #  Gx = convolve(im, sx)
-    #  Gy = convolve(im, sy)
-    #  magnitude = np.vectorize(lambda x,y: math.sqrt(x**2 + y**2))
-    #  edges = magnitude(Gx, Gy)
     edges = abs(convolve(im, sy))
 
     #  edges = non_maximal_supression(edges)
-    Image.fromarray(edges).show()
     rows, staveDist = hough_voting(edges)
-    print("Found stave distance {} at row {}".format(staveDist, rows))
-    return staveDist
+    print("Found stave distance {} at rows {}".format(staveDist, rows))
+    return staveDist, rows
 
 def scale_from_staves(im, staveDist):
     '''
@@ -294,7 +257,7 @@ if __name__ == '__main__':
     im = Image.open(sys.argv[1]).convert(mode='L')
 
     print("Detecting stave distance...")
-    staveDist = detect_stave_distance(np.array(im, dtype=np.float64))
+    staveDist, rows = detect_stave_distance(np.array(im, dtype=np.float64))
     imScaled, scale = scale_from_staves(im, staveDist)
     print("Detecting notes...")
     notes = detect_notes(np.array(imScaled), scale)
