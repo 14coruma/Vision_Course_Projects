@@ -138,10 +138,11 @@ def detect_stave_distance(im):
     Returns:
         staveDist (int): spacing between staves
     '''
-    # Apply Smoothing and Sobel edge detection
+    # Simple threshold of the image (we only care about black lines)
+    thresh = 200
+    im = np.array(np.where(im < thresh, 0, 255), dtype=np.int32)
+    # Sobel edge detection
     # We only care about horizontal lines, so just use gradient in y direction
-    #  gauss = np.array([[1,4,6,4,1],[4,16,24,16,4],[6,24,36,24,6],[4,16,26,16,4],[1,4,6,4,1]])/256
-    #  edges = convolve(im, gauss)
     sy1, sy2 = np.array([[1,0,-1]]), np.array([[1,2,1]])
     edges = abs(convolve_separable(im, sy1, sy2))
     edges = non_maximal_supression(edges)
