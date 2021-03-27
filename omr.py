@@ -11,6 +11,7 @@
 
 import sys
 import os
+import math
 import numpy as np
 from numba import njit
 
@@ -20,36 +21,75 @@ TEMPLATE_DIR = "./templates/"
 TEMPLATE_STAVE_DIST = 12
 
 # TODO: Currently padding with zeros. Change later if necessary (but this might be fine)
-@njit()
-def convolve(image,kernel,padding =0):
-    '''
-    Given grayscale image, convolve with a kernel
-
-    Params:
-        im (2d np.array): grayscale image
-        k (2d np.array): convolution kernel
-
-    Returns:
-        imOut (2d np.array): resulting image
-    '''
+#  @njit()
+def convolve(image, kernel, padtype = 'edge'):
+    # kernel needs to be flipped horizontally and vertically before applying convolution kernel; else it becomes cross-correlation.
     kernel = np.flipud(np.fliplr(kernel))
+    # x,y side kernel length will be used to determine the length of the image patch to convolve with the kernel.
+    # e.g. a for a 3x2 kernel, we will apply a 3x2 patch of the padded image to the kernel.
     xklen = kernel.shape[0]
     yklen = kernel.shape[1]
+    # image lengths will be used to create an empty canvas with the dimensions increased by the padding.
     ximlen = image.shape[0]
-    yimlen = image.shape[1]
-    if padding != 0:
-        padded_image = np.zeros((int(ximlen) + padding * 2,int(yimlen) +padding*2), dtype=np.int32)
-        padded_image[padding:padding+ximlen,padding:padding+yimlen] = image
-    else:
-        padded_image = image
-    final_image = np.zeros((padded_image.shape[0] - padding, padded_image.shape[1] - padding), dtype=np.int32)
+    yimlen=image.shape[1]
+    # padding lengths are 1 less than the kernel size so that the entire canvas applies convolution within the image bounds.
+    xpadding = xklen - 1
+    ypadding = yklen - 1
+    # begin to create the padded image: zero canvas the size of the image + padding sizes. 
+    # Then copy the image onto the padded image.
+    # padded_image = np.zeros((int(ximlen) + xpadding * 2,int(yimlen) +ypadding*2))
+    padded_image = image
+    # padded_image[xpadding:xpadding+ximlen,ypadding:ypadding+yimlen] = image
+    # padded_image[0:xpadding,0]
+    padded_image = np.pad(padded_image,((xpadding,xpadding),(ypadding,ypadding)), padtype)
+    # initialize final output image.
+    final_image = np.zeros_like(padded_image)
+    # iterate through the padded_image
     for i in range(0, padded_image.shape[0]):
-        for j in range(0,padded_image.shape[1]):
+        for j in range(0, padded_image.shape[1]):
+            # apply the image patch with the kernel by matrix multiplication and the resulting total sum.
             try:
+                # final_image[i-xpadding,j-ypadding] = (padded_image[i:i+xklen,j:j+yklen] * kernel).sum()
                 final_image[i,j] = (padded_image[i:i+xklen,j:j+yklen] * kernel).sum()
+            # when dimensions not equal, then the loop stops.
             except:
                 break    
+    # trim  out the padding
+    final_image = final_image[xpadding:xpadding+ximlen,ypadding:ypadding+yimlen]
+    # return final_image
     return final_image
+    # for i in range(xpadding, padded_image.shape[0]+xpadding):
+    #     for j in range(ypadding,padded_image.shape[1]+ypadding):
+
+#  def convolve(image,kernel,padding =0):
+    #  '''
+    #  Given grayscale image, convolve with a kernel
+#  
+    #  Params:
+        #  im (2d np.array): grayscale image
+        #  k (2d np.array): convolution kernel
+#  
+    #  Returns:
+        #  imOut (2d np.array): resulting image
+    #  '''
+    #  kernel = np.flipud(np.fliplr(kernel))
+    #  xklen = kernel.shape[0]
+    #  yklen = kernel.shape[1]
+    #  ximlen = image.shape[0]
+    #  yimlen = image.shape[1]
+    #  if padding != 0:
+        #  padded_image = np.zeros((int(ximlen) + padding * 2,int(yimlen) +padding*2), dtype=np.float64)
+        #  padded_image[padding:padding+ximlen,padding:padding+yimlen] = image
+    #  else:
+        #  padded_image = image
+    #  final_image = np.zeros((padded_image.shape[0] - padding, padded_image.shape[1] - padding), dtype=np.float64)
+    #  for i in range(0, padded_image.shape[0]):
+        #  for j in range(0,padded_image.shape[1]):
+            #  try:
+                #  final_image[i,j] = (padded_image[i:i+xklen,j:j+yklen] * kernel).sum()
+            #  except:
+                #  break    
+    #  return final_image
 
 @njit()
 def convolve_separable(im, kx, ky):    
@@ -94,8 +134,9 @@ def hough_voting(edges):
     for r in range(height):
         if r%25 == 0: print("Iteration "+str(r)+"/"+str(height))
         for c in range(width):
-            # Only consider points that are part of a horizontal edge
             if edges[r,c] <= 0: continue
+            # Only consider points that are part of a horizontal edge
+            #  if edges[r,c] <= 0: continue
             # Possible starting staff rows
             for pRow in range(1,r):
                 # Possible spacing (between (r-pRow)//4 and (height-pRow)//4)
@@ -104,25 +145,42 @@ def hough_voting(edges):
                 minSpace, maxSpace = max((r-pRow)//4,4), (height-pRow)//4
                 for pSpace in range(minSpace, maxSpace):
                     # If distance between point and pRow is a multiple of pSpace:
-                    if (r-pRow)%pSpace == 0: acc[pRow,pSpace] += 1
+                    if (r-pRow)%(pSpace) == 0: acc[pRow,pSpace] += 1
+
+    # Threshold hough space
+    thresh = acc.max() * .5 
+    acc = np.where(acc<thresh, 0, acc)
 
     # Find best spacing
     bestIndex = np.argmax(acc)
     row, space = bestIndex // (height//4), bestIndex % (height//4)
+    rows = [row]
 
-    return row, space
+    # Search for other staves
+    acc = acc[:,space]
+    while np.count_nonzero(acc) > 0:
+        for i in range(row-space*4, row+space*4):
+            if i>0 and i<len(acc): acc[i] = 0
+        row = np.argmax(acc)
+        rows.append(row+3) # Shift row down by 5. Needed because of gauss blur
+    # Remove last row (this algorithm always adds 1 extra stave at row=0)
+    rows.pop()
+
+    return rows, space
    
 # Reference (Canny): https://towardsdatascience.com/canny-edge-detection-step-by-step-in-python-computer-vision-b49c3a2d8123
 @njit()
 def non_maximal_supression(im):
     # Apply non-maximal supression, in y direction only
-    newIm = np.zeros(im.shape, dtype=np.int32)
+    newIm = np.zeros(im.shape, dtype=np.float64)
     for r in range(1,im.shape[0]-1):
         for c in range(im.shape[1]):
             val = im[r,c]
             valAbove = im[r-1,c]
+            valAbove2 = im[r-2,c]
             valBelow = im[r+1,c]
-            if (val >= valAbove) and (val >= valBelow):
+            valBelow2 = im[r+2,c]
+            if (val >= valAbove) and (val >= valBelow) and (val >= valAbove2) and (val >= valBelow2):
                 newIm[r,c] = val
     return newIm
 
@@ -138,16 +196,29 @@ def detect_stave_distance(im):
     Returns:
         staveDist (int): spacing between staves
     '''
+    Image.fromarray(im).show()
+    # Blur image with 5x5 gauss
+    gauss = np.array([[1,4,7,4,1],[4,16,26,16,4],[7,26,41,26,7],[4,16,26,16,4],[1,4,7,4,1]])/273
+    im = convolve(im, gauss)
+
     # Simple threshold of the image (we only care about black lines)
     thresh = 200
-    im = np.array(np.where(im < thresh, 0, 255), dtype=np.int32)
+    im = np.array(np.where(im < thresh, 0, 255), dtype=np.float64)
+
     # Sobel edge detection
     # We only care about horizontal lines, so just use gradient in y direction
-    sy1, sy2 = np.array([[1,0,-1]]), np.array([[1,2,1]])
-    edges = abs(convolve_separable(im, sy1, sy2))
-    edges = non_maximal_supression(edges)
-    row, staveDist = hough_voting(edges)
-    print("Found stave distance {} at row {}".format(staveDist, row))
+    sy = np.array([[1,2,1],[0,0,0],[-1,-2,-1]])
+    #  sx = np.array([[1,0,-1],[2,0,-2],[1,0,-1]])
+    #  Gx = convolve(im, sx)
+    #  Gy = convolve(im, sy)
+    #  magnitude = np.vectorize(lambda x,y: math.sqrt(x**2 + y**2))
+    #  edges = magnitude(Gx, Gy)
+    edges = abs(convolve(im, sy))
+
+    #  edges = non_maximal_supression(edges)
+    Image.fromarray(edges).show()
+    rows, staveDist = hough_voting(edges)
+    print("Found stave distance {} at row {}".format(staveDist, rows))
     return staveDist
 
 def scale_from_staves(im, staveDist):
@@ -223,7 +294,7 @@ if __name__ == '__main__':
     im = Image.open(sys.argv[1]).convert(mode='L')
 
     print("Detecting stave distance...")
-    staveDist = detect_stave_distance(np.array(im, dtype=np.int32))
+    staveDist = detect_stave_distance(np.array(im, dtype=np.float64))
     imScaled, scale = scale_from_staves(im, staveDist)
     print("Detecting notes...")
     notes = detect_notes(np.array(imScaled), scale)
