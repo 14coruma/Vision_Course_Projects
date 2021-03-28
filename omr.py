@@ -280,7 +280,7 @@ def visualize_notes(im, notes):
     '''
     im = im.convert('RGB')
     d = ImageDraw.Draw(im)
-    fnt = ImageFont.truetype('Calibri.ttf', 10)
+    fnt = ImageFont.truetype('Calibri.ttf', 12)
     for note in notes:
         # Rect around note
         p1 = (note[1], note[0])
