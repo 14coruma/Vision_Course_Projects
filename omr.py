@@ -227,7 +227,7 @@ def indices_to_notes(indices, shape, noteType, staves, scale):
     notes = []
     for y,x in zip(indices[0], indices[1]):
         nearestStave = np.argmin(list(map(lambda stave: abs(stave+scale*2-y), staves)))
-        posInStave = int((2*(y-staves[nearestStave]) / shape[0]))
+        posInStave = int((2*(y-staves[nearestStave]-shape[0]/4) / shape[0]))
         pitch = TREBLE_CLEF[posInStave%7]
         note = [
             y//scale, x//scale, shape[0]//scale, shape[1]//scale,
@@ -261,7 +261,7 @@ def detect_notes(imScaled, scale, staves):
     eighthTemp = np.array(Image.open(TEMPLATE_DIR + "template3.png").convert('L'))/255
 
     tempArea = noteTemp.shape[0] * noteTemp.shape[1]
-    indices = detect_symbols_using_hamming(imScaled, noteTemp, .11 * tempArea)
+    indices = detect_symbols_using_hamming(imScaled, noteTemp, .10 * tempArea)
     return indices_to_notes(indices, noteTemp.shape, 1, staves, scale)
 
 # TODO
