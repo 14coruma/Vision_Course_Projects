@@ -13,7 +13,7 @@ The outputs should be two files:
 
 ```detected.png , detected.txt```
 
-![output](output.png)
+![output](detected.png)
 
 ### Design Decisions and Assumptions
 As the assignment states, we assume that the music lines from the image are parallel and straight. This is in order to implement the Hough Transform for line detection. We also assumed that every lines are in treble clef. This is because the assignment did not provide a template model for treble or bass clefs. 
