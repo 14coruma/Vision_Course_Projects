@@ -148,7 +148,12 @@ def non_maximal_supression(im):
             if (val >= valAbove) and (val >= valBelow) and (val >= valAbove2) and (val >= valBelow2):
                 newIm[r,c] = val
     return newIm
-
+def nms_notes(im):
+    new_im = np.zeros(im.shape, dtype = np.float64)
+    for r in range(1, shape[0]-1):
+        for c in range(im.shape[1]):
+            val = im[r,c]
+            
 # Reference (Sobel): https://en.wikipedia.org/wiki/Sobel_operator
 def detect_stave_distance(im):
     '''
@@ -164,7 +169,9 @@ def detect_stave_distance(im):
     '''
     # Blur image with 5x5 gauss
     gauss = np.array([[1,4,7,4,1],[4,16,26,16,4],[7,26,41,26,7],[4,16,26,16,4],[1,4,7,4,1]])/273
-    im = convolve(im, gauss)
+    gauss1 = np.array([[1,4,6,4,1]])/16
+    # im = convolve(im, gauss)
+    im = convolve_separable(im, gauss1,gauss1)
 
     # Simple threshold of the image (we only care about black lines)
     thresh = 0.78
@@ -172,10 +179,15 @@ def detect_stave_distance(im):
 
     # Sobel edge detection
     # We only care about horizontal lines, so just use gradient in y direction
-    sy = np.array([[1,2,1],[0,0,0],[-1,-2,-1]])
-    edges = abs(convolve(im, sy))
+    # sy = np.array([[1,2,1],[0,0,0],[-1,-2,-1]])
+    s1 = np.array([[1,0,-1]])
+    s2 = np.array([[1,2,1]])
+    
+    # edges = abs(convolve(im, sy))
+    edges = convolve_separable(im, s1, s2)
     
     #  edges = non_maximal_supression(edges)
+    Image.fromarray(edges*255).show()
     rows, staveDist = hough_voting(edges)
     print("Found stave distance {} at rows {}".format(staveDist, rows))
     return staveDist, rows
@@ -259,7 +271,10 @@ def detect_notes(imScaled, scale, staves):
     noteTemp = np.array(Image.open(TEMPLATE_DIR + "template1.png").convert('L'))/255
     quarterTemp = np.array(Image.open(TEMPLATE_DIR + "template2.png").convert('L'))/255
     eighthTemp = np.array(Image.open(TEMPLATE_DIR + "template3.png").convert('L'))/255
-
+    # imScaled = 
+    # thresh = 0.78
+    # imScaled = np.array(np.where(imScaled < thresh, 0, 1), dtype=np.float64)
+    imScaled = sobel_gradient(imScaled)
     tempArea = noteTemp.shape[0] * noteTemp.shape[1]
     indices = detect_symbols_using_hamming(imScaled, noteTemp, .11 * tempArea)
     return indices_to_notes(indices, noteTemp.shape, 1, staves, scale)
@@ -286,6 +301,7 @@ def visualize_notes(im, notes):
         p1 = (note[1], note[0])
         p2 = (note[1]+note[3], note[0]+note[2])
         d.rectangle([p1,p2], outline='Red')
+    for note in notes:
         # Note label
         ptext1 = (note[1]-10, note[0])
         ptext2 = (note[1], note[0]+note[2])
