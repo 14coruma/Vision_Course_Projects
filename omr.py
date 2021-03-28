@@ -15,10 +15,12 @@ import math
 import numpy as np
 from numba import njit
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 
 TEMPLATE_DIR = "./templates/"
 TEMPLATE_STAVE_DIST = 12
+TREBLE_CLEF = ['E','D','C','B','A','G','F']
+BASS_CLEF = ['G','F','E','D','C','B','A']
 
 #  @njit()
 def convolve(image, kernel, padtype = 'edge'):
@@ -36,10 +38,7 @@ def convolve(image, kernel, padtype = 'edge'):
     ypadding = yklen - 1
     # begin to create the padded image: zero canvas the size of the image + padding sizes. 
     # Then copy the image onto the padded image.
-    # padded_image = np.zeros((int(ximlen) + xpadding * 2,int(yimlen) +ypadding*2))
     padded_image = image
-    # padded_image[xpadding:xpadding+ximlen,ypadding:ypadding+yimlen] = image
-    # padded_image[0:xpadding,0]
     padded_image = np.pad(padded_image,((xpadding,xpadding),(ypadding,ypadding)), padtype)
     # initialize final output image.
     final_image = np.zeros_like(padded_image)
@@ -48,7 +47,6 @@ def convolve(image, kernel, padtype = 'edge'):
         for j in range(0, padded_image.shape[1]):
             # apply the image patch with the kernel by matrix multiplication and the resulting total sum.
             try:
-                # final_image[i-xpadding,j-ypadding] = (padded_image[i:i+xklen,j:j+yklen] * kernel).sum()
                 final_image[i,j] = (padded_image[i:i+xklen,j:j+yklen] * kernel).sum()
             # when dimensions not equal, then the loop stops.
             except:
@@ -57,8 +55,6 @@ def convolve(image, kernel, padtype = 'edge'):
     final_image = final_image[xpadding:xpadding+ximlen,ypadding:ypadding+yimlen]
     # return final_image
     return final_image
-    # for i in range(xpadding, padded_image.shape[0]+xpadding):
-    #     for j in range(ypadding,padded_image.shape[1]+ypadding):
 
 # @njit()
 def convolve_separable(im, kx, ky):    
@@ -178,7 +174,7 @@ def detect_stave_distance(im):
     # We only care about horizontal lines, so just use gradient in y direction
     sy = np.array([[1,2,1],[0,0,0],[-1,-2,-1]])
     edges = abs(convolve(im, sy))
-
+    
     #  edges = non_maximal_supression(edges)
     rows, staveDist = hough_voting(edges)
     print("Found stave distance {} at rows {}".format(staveDist, rows))
@@ -227,18 +223,21 @@ def detect_symbols_using_hamming(I, T, score_thresh):
     indices = np.where(hamming_score_array > hamming_score_array.max()-score_thresh)
     return indices
 
-def indices_to_notes(indices, shape, noteType, scale):
+def indices_to_notes(indices, shape, noteType, staves, scale):
     notes = []
     for y,x in zip(indices[0], indices[1]):
+        nearestStave = np.argmin(list(map(lambda stave: abs(stave+scale*2-y), staves)))
+        posInStave = int((2*(y-staves[nearestStave]) / shape[0]))
+        pitch = TREBLE_CLEF[posInStave%7]
         note = [
             y//scale, x//scale, shape[0]//scale, shape[1]//scale,
-            noteType, "A", 0
+            noteType, pitch, 0
         ]
         notes.append(note)
     return notes
 
 # TODO
-def detect_notes(imScaled, scale):
+def detect_notes(imScaled, scale, staves):
     '''
     Given appropriately scaled grayscale image of sheet music, detect notes
     and rests given templates. Adjust note postion/scale to match original
@@ -251,6 +250,7 @@ def detect_notes(imScaled, scale):
     Params:
         imScaled (2d np.array): scaled grayscale image of sheet music
         scale (float): image scaling factor
+        staves (list): rows where all staves appear
 
     Returns:
         notes (list): List of notes in original image. Each note should include:
@@ -261,8 +261,8 @@ def detect_notes(imScaled, scale):
     eighthTemp = np.array(Image.open(TEMPLATE_DIR + "template3.png").convert('L'))/255
 
     tempArea = noteTemp.shape[0] * noteTemp.shape[1]
-    indices = detect_symbols_using_hamming(imScaled, noteTemp, .12 * tempArea)
-    return indices_to_notes(indices, noteTemp.shape, 'note', scale)
+    indices = detect_symbols_using_hamming(imScaled, noteTemp, .11 * tempArea)
+    return indices_to_notes(indices, noteTemp.shape, 1, staves, scale)
 
 # TODO
 def visualize_notes(im, notes):
@@ -279,11 +279,18 @@ def visualize_notes(im, notes):
         imAnnotated (PIL.Image): new RGB image annotated with note/rest labels
     '''
     im = im.convert('RGB')
+    d = ImageDraw.Draw(im)
+    fnt = ImageFont.truetype('Calibri.ttf', 10)
     for note in notes:
-        d = ImageDraw.Draw(im)
+        # Rect around note
         p1 = (note[1], note[0])
         p2 = (note[1]+note[3], note[0]+note[2])
         d.rectangle([p1,p2], outline='Red')
+        # Note label
+        ptext1 = (note[1]-10, note[0])
+        ptext2 = (note[1], note[0]+note[2])
+        d.rectangle([ptext1, ptext2], fill='White')
+        d.text(ptext1, note[5], font=fnt, fill='Blue', align='left')
     return im
 
 # TODO
@@ -302,10 +309,10 @@ if __name__ == '__main__':
     im = Image.open(sys.argv[1]).convert(mode='L')
 
     print("Detecting stave distance...")
-    staveDist, rows = detect_stave_distance(np.array(im, dtype=np.float64)/255)
+    staveDist, staves = detect_stave_distance(np.array(im, dtype=np.float64)/255)
     imScaled, scale = scale_from_staves(im, staveDist)
     print("Detecting notes...")
-    notes = detect_notes(np.array(imScaled)/255, scale)
+    notes = detect_notes(np.array(imScaled)/255, scale, staves)
     visualize_notes(im, notes).save("detected.png")
     notes_to_txt(notes)
     print("Done.")
