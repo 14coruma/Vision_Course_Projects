@@ -15,7 +15,7 @@ import math
 import numpy as np
 from numba import njit
 
-from PIL import Image
+from PIL import Image, ImageDraw
 
 TEMPLATE_DIR = "./templates/"
 TEMPLATE_STAVE_DIST = 12
@@ -171,8 +171,8 @@ def detect_stave_distance(im):
     im = convolve(im, gauss)
 
     # Simple threshold of the image (we only care about black lines)
-    thresh = 200
-    im = np.array(np.where(im < thresh, 0, 255), dtype=np.float64)
+    thresh = 0.78
+    im = np.array(np.where(im < thresh, 0, 1), dtype=np.float64)
 
     # Sobel edge detection
     # We only care about horizontal lines, so just use gradient in y direction
@@ -200,6 +200,43 @@ def scale_from_staves(im, staveDist):
     scale = TEMPLATE_STAVE_DIST/staveDist
     return im.resize((int(im.width*scale), int(im.height*scale))), scale
 
+# Compute Hamming distance
+@njit()
+def compute_hamming(I, T):
+    M = T.shape[0]
+    K = T.shape[1]
+    
+    # Initialize a hamming score matrix
+    hamming_score_row = I.shape[0] - M
+    hamming_score_col = I.shape[1] - K
+    hamming_score = np.zeros((hamming_score_row, hamming_score_col))
+    
+    # Loop for each pixel in the image
+    for i in range(hamming_score_row):
+        for j in range(hamming_score_col):
+            score = 0
+            for m in range(M):
+                for k in range(K):
+                    score = score + I[i+m, j+k]*T[m, k] + (1 - I[i+m, j+k])*(1 - T[m, k])
+            hamming_score[i, j] = score
+    return hamming_score
+
+def detect_symbols_using_hamming(I, T, score_thresh):
+    '''Inputs are numpy array'''
+    hamming_score_array = compute_hamming(I, T)
+    indices = np.where(hamming_score_array > hamming_score_array.max()-score_thresh)
+    return indices
+
+def indices_to_notes(indices, shape, noteType, scale):
+    notes = []
+    for y,x in zip(indices[0], indices[1]):
+        note = [
+            y//scale, x//scale, shape[0]//scale, shape[1]//scale,
+            noteType, "A", 0
+        ]
+        notes.append(note)
+    return notes
+
 # TODO
 def detect_notes(imScaled, scale):
     '''
@@ -219,11 +256,13 @@ def detect_notes(imScaled, scale):
         notes (list): List of notes in original image. Each note should include:
             [row, col, height, width, symbol_type, pitch, confidence]
     '''
-    noteTemp = Image.open(TEMPLATE_DIR + "template1.png")
-    quarterTemp = Image.open(TEMPLATE_DIR + "template2.png")
-    eighthTemp = Image.open(TEMPLATE_DIR + "template3.png")
+    noteTemp = np.array(Image.open(TEMPLATE_DIR + "template1.png").convert('L'))/255
+    quarterTemp = np.array(Image.open(TEMPLATE_DIR + "template2.png").convert('L'))/255
+    eighthTemp = np.array(Image.open(TEMPLATE_DIR + "template3.png").convert('L'))/255
 
-    pass
+    tempArea = noteTemp.shape[0] * noteTemp.shape[1]
+    indices = detect_symbols_using_hamming(imScaled, noteTemp, .12 * tempArea)
+    return indices_to_notes(indices, noteTemp.shape, 'note', scale)
 
 # TODO
 def visualize_notes(im, notes):
@@ -239,7 +278,13 @@ def visualize_notes(im, notes):
     Returns:
         imAnnotated (PIL.Image): new RGB image annotated with note/rest labels
     '''
-    pass
+    im = im.convert('RGB')
+    for note in notes:
+        d = ImageDraw.Draw(im)
+        p1 = (note[1], note[0])
+        p2 = (note[1]+note[3], note[0]+note[2])
+        d.rectangle([p1,p2], outline='Red')
+    return im
 
 # TODO
 def notes_to_txt(notes):
@@ -257,10 +302,10 @@ if __name__ == '__main__':
     im = Image.open(sys.argv[1]).convert(mode='L')
 
     print("Detecting stave distance...")
-    staveDist, rows = detect_stave_distance(np.array(im, dtype=np.float64))
+    staveDist, rows = detect_stave_distance(np.array(im, dtype=np.float64)/255)
     imScaled, scale = scale_from_staves(im, staveDist)
     print("Detecting notes...")
-    notes = detect_notes(np.array(imScaled), scale)
+    notes = detect_notes(np.array(imScaled)/255, scale)
     visualize_notes(im, notes).save("detected.png")
     notes_to_txt(notes)
     print("Done.")
