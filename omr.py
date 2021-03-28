@@ -228,7 +228,7 @@ def indices_to_notes(indices, shape, noteType, staves, scale, confidence_array):
     for y,x in zip(indices[0], indices[1]):
         nearestStave = np.argmin(list(map(lambda stave: abs(stave+scale*2-y), staves)))
         posInStave = int((2*(y-staves[nearestStave]-shape[0]/4) / shape[0]))
-        pitch = TREBLE_CLEF[posInStave%7]
+        pitch = TREBLE_CLEF[posInStave%7] if noteType == 'filled_note' else '_'
         note = [
             y//scale, x//scale, shape[0]//scale, shape[1]//scale,
             noteType, pitch, confidence_array[y][x]
@@ -259,10 +259,19 @@ def detect_notes(imScaled, scale, staves):
     noteTemp = np.array(Image.open(TEMPLATE_DIR + "template1.png").convert('L'))/255
     quarterTemp = np.array(Image.open(TEMPLATE_DIR + "template2.png").convert('L'))/255
     eighthTemp = np.array(Image.open(TEMPLATE_DIR + "template3.png").convert('L'))/255
+    templates = {
+        'filled_note': noteTemp,
+        'eighth_rest': quarterTemp, 
+        'quarter_rest': eighthTemp
+    }
 
-    tempArea = noteTemp.shape[0] * noteTemp.shape[1]
-    indices, confidence_array = detect_symbols_using_hamming(imScaled, noteTemp, .10 * tempArea)
-    return indices_to_notes(indices, noteTemp.shape, 1, staves, scale, confidence_array)
+    notes = []
+    for noteType, template in templates.items(): 
+        tempArea = template.shape[0] * template.shape[1]
+        indices, confidence_array = detect_symbols_using_hamming(imScaled, template, .10 * tempArea)
+        notes += indices_to_notes(
+            indices, template.shape, noteType, staves, scale, confidence_array)
+    return notes
 
 # TODO
 def visualize_notes(im, notes):
@@ -281,16 +290,23 @@ def visualize_notes(im, notes):
     im = im.convert('RGB')
     d = ImageDraw.Draw(im)
     fnt = ImageFont.truetype('Calibri.ttf', 10)
+    colors = {
+        'filled_note': 'Red',
+        'eighth_rest': 'Blue', 
+        'quarter_rest': 'Green' 
+    }
     for note in notes:
+        color = colors[note[4]]
         # Rect around note
         p1 = (note[1], note[0])
         p2 = (note[1]+note[3], note[0]+note[2])
-        d.rectangle([p1,p2], outline='Red')
+        d.rectangle([p1,p2], outline=color)
         # Note label
         ptext1 = (note[1]-10, note[0])
         ptext2 = (note[1], note[0]+note[2])
-        d.rectangle([ptext1, ptext2], fill='White')
-        d.text(ptext1, note[5], font=fnt, fill='Blue', align='left')
+        if note[4] == 'filled_note':
+            d.rectangle([ptext1, ptext2], fill='White')
+            d.text(ptext1, note[5], font=fnt, fill=color, align='left')
     return im
 
 # TODO
