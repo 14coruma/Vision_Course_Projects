@@ -1,5 +1,5 @@
-# Assignment 1
-Andrew Corum, Josep Han, Kenneth Zhang, Zheng Chen
+# Assignment 1: Image Processing and Recognition Basics
+#### by: Andrew Corum, Josep Han, Kenneth Zhang, Zheng Chen
 #### 03/29/2021
 
  <!-- Your report should explain how to run your code
@@ -12,6 +12,8 @@ To run the code: in the command line, run:
 The outputs should be two files: 
 
 ```detected.png , detected.txt```
+
+![output](Image.jpeg)
 
 ### Design Decisions and Assumptions
 As the assignment states, we assume that the music lines from the image are parallel and straight. This is in order to implement the Hough Transform for line detection. We also assumed that every lines are in treble clef. This is because the assignment did not provide a template model for treble or bass clefs. 
