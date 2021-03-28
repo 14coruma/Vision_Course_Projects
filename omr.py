@@ -233,9 +233,10 @@ def detect_symbols_using_hamming(I, T, score_thresh):
     '''Inputs are numpy array'''
     hamming_score_array = compute_hamming(I, T)
     indices = np.where(hamming_score_array > hamming_score_array.max()-score_thresh)
-    return indices
+    print(hamming_score_array.shape)
+    return indices, (hamming_score_array / T.size)
 
-def indices_to_notes(indices, shape, noteType, staves, scale):
+def indices_to_notes(indices, shape, noteType, staves, scale, confidence_array):
     notes = []
     for y,x in zip(indices[0], indices[1]):
         nearestStave = np.argmin(list(map(lambda stave: abs(stave+scale*2-y), staves)))
@@ -243,7 +244,7 @@ def indices_to_notes(indices, shape, noteType, staves, scale):
         pitch = TREBLE_CLEF[posInStave%7]
         note = [
             y//scale, x//scale, shape[0]//scale, shape[1]//scale,
-            noteType, pitch, 0
+            noteType, pitch, 0, confidence_array[y][x]
         ]
         notes.append(note)
     return notes
@@ -274,10 +275,10 @@ def detect_notes(imScaled, scale, staves):
     # imScaled = 
     # thresh = 0.78
     # imScaled = np.array(np.where(imScaled < thresh, 0, 1), dtype=np.float64)
-    imScaled = sobel_gradient(imScaled)
+    # imScaled = sobel_gradient(imScaled)
     tempArea = noteTemp.shape[0] * noteTemp.shape[1]
-    indices = detect_symbols_using_hamming(imScaled, noteTemp, .11 * tempArea)
-    return indices_to_notes(indices, noteTemp.shape, 1, staves, scale)
+    indices, confidence_array = detect_symbols_using_hamming(imScaled, noteTemp, .11 * tempArea)
+    return indices_to_notes(indices, noteTemp.shape, 1, staves, scale, confidence_array)
 
 # TODO
 def visualize_notes(im, notes):
