@@ -191,17 +191,7 @@ def detect_stave_distance(im):
     rows, staveDist = hough_voting(edges)
     print("Found stave distance {} at rows {}".format(staveDist, rows))
     return staveDist, rows
-def sobel_gradient(image):
-    sobkx1 = np.array([[1,2,1]])
-    sobkx2 = np.array([[-1,0,1]])
-    sobky1 = np.array([[-1,0,1]])
-    sobky2 = np.array([[1,2,1]])
-    a = convolve_separable(image, sobky1,sobky2)
-    b = convolve_separable(image, sobkx1, sobkx2)
 
-    c = np.sqrt(np.square(a) + np.square(b))
-    c *= 255 / c.max()
-    return c.astype(int)
 def scale_from_staves(im, staveDist):
     '''
     Given grayscale PIL.Image of sheet music, and distance between staves,
@@ -282,13 +272,9 @@ def detect_notes(imScaled, scale, staves):
     quarterTemp = np.array(Image.open(TEMPLATE_DIR + "template2.png").convert('L'))/255
     eighthTemp = np.array(Image.open(TEMPLATE_DIR + "template3.png").convert('L'))/255
     # imScaled = 
-    # thresh = 0.60
+    # thresh = 0.78
     # imScaled = np.array(np.where(imScaled < thresh, 0, 1), dtype=np.float64)
-    
-    # imScaled = sobel_gradient(imScaled)
-    # noteTemp = sobel_gradient(noteTemp)
-    Image.fromarray(imScaled*255).show()
-    Image.fromarray(noteTemp*255).show()
+    imScaled = sobel_gradient(imScaled)
     tempArea = noteTemp.shape[0] * noteTemp.shape[1]
     indices = detect_symbols_using_hamming(imScaled, noteTemp, .11 * tempArea)
     return indices_to_notes(indices, noteTemp.shape, 1, staves, scale)
