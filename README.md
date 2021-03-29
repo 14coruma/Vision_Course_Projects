@@ -27,10 +27,19 @@ When detecting the staff lines, we decided to implement a naive thresholding, wh
 We have tested with Sobel operators and Gaussians, and the results looked identical to code packages from CV2. Since we made it compatible with separable 1D kernels, it is safe to assume that the runtime performance should be improved over 2D kernels.
 
 
-### Template Matching
+#### Template Matching
 The Hamming Distance calculation was not hard to implement, since it checks every pixel of the template with the given area of the image, much like convolution. However, we noticed that this would result in a less accurate note detection, where things like the circle in the treble clef would count as a note. 
 
 The alternate approach suggested we take the edge maps of the image and templates before calculating the template matching values in a slightly different way. We found that this implementation is much slower compared to the Hamming distance method. 
+
+#### NJIT 
+Here are some computation time comparisons:
+
+Hamming Distance Time (in seconds)|No NJIT|With NJIT
+------------ | ------------ | -------------
+music1|84.35875154|0.0849998
+music2|158.1897514|0.14099884
+rach|N/A|0.708999872
 
 ### Future Work
 The first thing we could look at to improve is to provide a way to detect the clefs of each staff. This would make the note detection more consistent to the true values. 
