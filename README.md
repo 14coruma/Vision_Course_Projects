@@ -5,9 +5,16 @@
  <!-- Your report should explain how to run your code
 and any design decisions or other assumptions you made -->
 
-To run the code: in the command line, run: 
+To run the code: in the command line, run either: 
 
-```python3 omr.py ./images/music1.png```
+<!-- ```python3 omr.py ./images/music1.png hamming``` -->
+```python3 ./omr.py <file> hamming```
+to run the hamming distance method, or 
+```python3 ./omr.py <file> d_matrix```
+to run the d_matrix method.
+
+```<file>``` is the location of the music sheet.
+
 
 The outputs should be two files: 
 
@@ -30,7 +37,9 @@ We have tested with Sobel operators and Gaussians, and the results looked identi
 #### Template Matching
 The Hamming Distance calculation was not hard to implement, since it checks every pixel of the template with the given area of the image, much like convolution. However, we noticed that this would result in a less accurate note detection, where things like the circle in the treble clef would count as a note. 
 
-The alternate approach suggested we take the edge maps of the image and templates before calculating the template matching values in a slightly different way. We found that this implementation is much slower compared to the Hamming distance method. 
+The alternate approach suggested we take the edge maps of the image and templates before calculating the template matching values in a slightly different way. We found that this implementation is much slower compared to the Hamming distance method. But the accuracy of the template matching seems to perform better than with Hamming Distance for some instances such as eighth note detection. On the other hand, regular note template matching worked better on Hamming in our experiments.
+
+
 
 #### NJIT 
 Here are some computation time comparisons:
