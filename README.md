@@ -1,6 +1,6 @@
 # Assignment 1: Image Processing and Recognition Basics
 #### by: Andrew Corum, Josep Han, Kenneth Zhang, Zheng Chen
-#### 03/29/2021
+#### 03/28/2021
 
  <!-- Your report should explain how to run your code
 and any design decisions or other assumptions you made -->
