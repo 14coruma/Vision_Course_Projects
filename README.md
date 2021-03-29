@@ -5,7 +5,10 @@
  <!-- Your report should explain how to run your code
 and any design decisions or other assumptions you made -->
 
-To run the code: in the command line, run either: 
+To run the code: in the command line, run: 
+```python3 ./omr.py <file>```
+
+This will use the hamming-distance note detection method by default. If you would like to specify which method, you can use:
 
 <!-- ```python3 omr.py ./images/music1.png hamming``` -->
 ```python3 ./omr.py <file> hamming```
@@ -14,7 +17,6 @@ to run the hamming distance method, or
 to run the d_matrix method.
 
 ```<file>``` is the location of the music sheet.
-
 
 The outputs should be two files: 
 
@@ -28,6 +30,11 @@ As the assignment states, we assume that the music lines from the image are para
 When applying convolutions, we assumed that the padding of the image should repeat the values found at the edges. This prevented the darkened halo effect on both our template images as well as the music sheets when applying Gaussians or Sobel kernels.
 
 When detecting the staff lines, we decided to implement a naive thresholding, where if the pixel value is less than 78% (100% being white), then we convert that pixel to 0. This significantly helped the Hough Transform algorithm as there were less ambiguous pixels when applying the Sobel operator and non-maximal suppression.
+
+![output](music1_acc.PNG)
+
+The figure above shows the accumulator used by the Hough Transform on `images/music1.png`. The y axis represents the row of a stave, and the x axis is the spacing between the five staff lines.
+From this image, you can see two major groupings (due to `music1.png` containing two staves). Addionally, the two brightest areas of these groupings occur at the same x location (which represents a staff line distance of 12 pixels).
 
 ### Performance of algorithms
 #### Convolution
