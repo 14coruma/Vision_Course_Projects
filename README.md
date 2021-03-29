@@ -41,5 +41,10 @@ music1|84.35875154|0.0849998
 music2|158.1897514|0.14099884
 rach|N/A|0.708999872
 
+D_Matrix time (in seconds) |No NJIT|With NJIT
+------------ | ------------ | -------------
+music1|~20 minutes|87.13685417175293
+
+
 ### Future Work
 The first thing we could look at to improve is to provide a way to detect the clefs of each staff. This would make the note detection more consistent to the true values. 
