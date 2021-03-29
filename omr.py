@@ -25,7 +25,7 @@ TEMPLATE_STAVE_DIST = 12
 TREBLE_CLEF = ['E','D','C','B','A','G','F']
 BASS_CLEF = ['G','F','E','D','C','B','A']
 
-#  @njit(parallel = True)
+#  @njit()
 def convolve(image, kernel, padtype = 'edge'):
     # kernel needs to be flipped horizontally and vertically before applying convolution kernel; else it becomes cross-correlation.
     kernel = np.flipud(np.fliplr(kernel))
@@ -59,7 +59,7 @@ def convolve(image, kernel, padtype = 'edge'):
     # return final_image
     return final_image
 
-# @njit(parallel = True)
+# @njit()
 def convolve_separable(im, kx, ky):    
     '''
     Given grayscale image, convolve with a separable kernel k = kx^T * ky
@@ -79,7 +79,7 @@ def convolve_separable(im, kx, ky):
 # Reference (Hough): Principles of Digital Image Processing (Burger, Burge 2009)
 #   Pages 50-63
 # Reference (Hough): Course slides (from Canvas)
-@njit(parallel = True)
+@njit()
 def hough_voting(edges):
     '''
     Given edge-detected image, using Sobel operator. Apply Hough transform.
@@ -137,7 +137,7 @@ def hough_voting(edges):
     return rows, space
    
 # Reference (Canny): https://towardsdatascience.com/canny-edge-detection-step-by-step-in-python-computer-vision-b49c3a2d8123
-@njit(parallel = True)
+@njit()
 def non_maximal_supression(im):
     # Apply non-maximal supression, in y direction only
     newIm = np.zeros(im.shape, dtype=np.float64)
@@ -166,11 +166,8 @@ def detect_stave_distance(im):
         rows (list): list of all stave starting rows
     '''
     # Blur image with 5x5 gauss
-    # gauss = np.array([[1,4,7,4,1],[4,16,26,16,4],[7,26,41,26,7],[4,16,26,16,4],[1,4,7,4,1]])/273
-    gauss = np.array([[1,4,6,4,1]]) / 16
-    im = convolve(im, gauss.T)
+    gauss = np.array([[1,4,7,4,1],[4,16,26,16,4],[7,26,41,26,7],[4,16,26,16,4],[1,4,7,4,1]])/273
     im = convolve(im, gauss)
-    # im = convolve2d(im, gauss,gauss)
 
     # Simple threshold of the image (we only care about black lines)
     thresh = 0.78
@@ -205,7 +202,7 @@ def scale_from_staves(im, staveDist):
 #
 # Methods for detecting using Hamming distance
 #
-@njit(parallel = True)
+@njit()
 def compute_hamming(I, T):
     M = T.shape[0]
     K = T.shape[1]
@@ -250,7 +247,7 @@ def edge_detector(I):
     
     return G
 
-@njit()
+@njit
 def is_valid(vis, row_idx, col_idx):
     if(row_idx < 0 or col_idx < 0 or row_idx >= vis.shape[0] or col_idx >= vis.shape[1]):
         return False
@@ -260,7 +257,7 @@ def is_valid(vis, row_idx, col_idx):
     
     return True
 
-@njit(parallel = True)
+@njit
 def BFS_search(edge_array, row_idx, col_idx):
     '''
     edge_array: a binary map where value 1 indicates the edge pixel
@@ -294,7 +291,7 @@ def BFS_search(edge_array, row_idx, col_idx):
                 visited_array[adjx, adjy] = True
     return dist
 
-@njit(parallel = True)
+@njit()
 def compute_D(I_edge):
     D_row = I_edge.shape[0]
     D_col = I_edge.shape[1]
@@ -306,7 +303,6 @@ def compute_D(I_edge):
             D[i, j] = BFS_search(I_edge, i, j)
     return D
 
-@njit(parallel = True)
 def edge_matching_score(D, T_edge):
     M = T_edge.shape[0]
     K = T_edge.shape[1]
@@ -372,10 +368,6 @@ def detect_notes(imScaled, scale, staves, method='d_matrix'):
     D = None
     if method == 'd_matrix':
         print("  Computing D-matrix...")
-        
-        # naive threshold  the image
-        imScaled =  np.array(np.where(np.array(imScaled) < 0.78, 0.00, 1), dtype=np.float64)
-
         D = compute_D(edge_detector(imScaled))
 
     notes = []
@@ -453,10 +445,6 @@ if __name__ == '__main__':
     staveDist, staves = detect_stave_distance(np.array(im, dtype=np.float64)/255)
     imScaled, scale = scale_from_staves(im, staveDist)
     print("Detecting notes...")
-        # im = naive
-    # imScaled = np.array(np.where(np.array(imScaled) < 0.78, 0.00, 1), dtype=np.float64)
-
-    # imScaled = Image.fromarray(imScaled)
     notes = detect_notes(np.array(imScaled)/255, scale, staves, detectMethod)
     visualize_notes(im, notes).save("detected.png")
     notes_to_txt(notes)
