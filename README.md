@@ -33,6 +33,8 @@ When detecting the staff lines, we decided to implement a naive thresholding, wh
 #### Convolution
 We have tested with Sobel operators and Gaussians, and the results looked identical to code packages from CV2. Since we made it compatible with separable 1D kernels, it is safe to assume that the runtime performance should be improved over 2D kernels.
 
+#### Hamming Distance
+
 
 #### Template Matching
 The Hamming Distance calculation was not hard to implement, since it checks every pixel of the template with the given area of the image, much like convolution. However, we noticed that this would result in a less accurate note detection, where things like the circle in the treble clef would count as a note. 
@@ -42,18 +44,25 @@ The alternate approach suggested we take the edge maps of the image and template
 
 
 #### NJIT 
+Early in our work, we noticed that our code would not run as quickly as we thought it should, even with algorithm optimizations made such as using separable kernels during convolution. We discovered that in our work, numba's njit could help apply a JIT compiler to our code to increase the computation speed.
+
 Here are some computation time comparisons:
 
-Hamming Distance Time (in seconds)|No NJIT|With NJIT
------------- | ------------ | -------------
-music1|84.35875154|0.0849998
-music2|158.1897514|0.14099884
-rach|N/A|0.708999872
+Hamming Distance Time (in seconds)|No NJIT|With NJIT| % changed
+------------ | ------------ | -------------|---------------
+music1|84.35875154|0.0849998 | 992.4582388%
+music2|158.1897514|0.14099884 | 1121.922358%
+rach|N/A|0.708999872 | N/A
+
+In row 1, you can see that there is 
 
 D_Matrix time (in seconds) |No NJIT|With NJIT
 ------------ | ------------ | -------------
 music1|~20 minutes|87.13685417175293
 
+Evidently, NJIT was highly instrumental in allowing our code to run in manageable time.
 
 ### Future Work
 The first thing we could look at to improve is to provide a way to detect the clefs of each staff. This would make the note detection more consistent to the true values. 
+
+We could also experiment with different threshold values that the user could adjust when applying on different images.
