@@ -65,4 +65,6 @@ Evidently, NJIT was highly instrumental in allowing our code to run in manageabl
 ### Future Work
 The first thing we could look at to improve is to provide a way to detect the clefs of each staff. This would make the note detection more consistent to the true values. 
 
+Our current output also has multiple overlapping boxes on the detected templates. We could mitigate this by using non-maximal suppression.
+
 We could also experiment with different threshold values that the user could adjust when applying on different images.
