@@ -33,7 +33,7 @@ When detecting the staff lines, we decided to implement a naive thresholding, wh
 #### Convolution
 We have tested with Sobel operators and Gaussians, and the results looked identical to code packages from CV2. Since we made it compatible with separable 1D kernels, it is safe to assume that the runtime performance should be improved over 2D kernels.
 
-#### Hamming Distance
+<!-- #### Hamming Distance -->
 
 
 #### Template Matching
