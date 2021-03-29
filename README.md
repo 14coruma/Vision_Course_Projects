@@ -75,3 +75,14 @@ The first thing we could look at to improve is to provide a way to detect the cl
 Our current output also has multiple overlapping boxes on the detected templates. We could mitigate this by using non-maximal suppression.
 
 We could also experiment with different threshold values that the user could adjust when applying on different images.
+
+### References
+Specific references are documented within our code (in `omr.py`).
+* PIL docs: https://pillow.readthedocs.io/en/stable/
+* Numba docs: http://numba.pydata.org/numba-doc/latest/index.html
+* Principles of Digital Image Processing (Burger, Burge 2009) Pages 50-63. (About Hough Transform).
+* B657 Spring 2021 Course slides (found on Canvas)
+* Towardsdatascience.com tutorial on Canny edge detection: https://towardsdatascience.com/canny-edge-detection-step-by-step-in-python-computer-vision-b49c3a2d8123
+* Wikipedia summary of sobel operatory: https://en.wikipedia.org/wiki/Sobel_operator
+* Medium.com summary of 2d convlutions: https://medium.com/analytics-vidhya/2d-convolution-using-python-numpy-43442ff5f381
+* Adapted BFS code from Geeksforgeeks.org: https://www.geeksforgeeks.org/breadth-first-traversal-bfs-on-a-2d-array/

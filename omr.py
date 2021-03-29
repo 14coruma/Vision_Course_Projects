@@ -5,9 +5,6 @@
 #
 # usage: python3 omr.py filename
 #
-# References used:
-# - PIL docs: https://pillow.readthedocs.io/en/stable/
-# - 
 
 import sys
 import os
@@ -17,7 +14,7 @@ from numba import njit
 
 from PIL import Image, ImageDraw, ImageFont
 
-# TODO: Remove this. Use our convolve only
+# For testing purposes only:
 from scipy.signal import convolve2d
 
 TEMPLATE_DIR = "./templates/"
@@ -257,6 +254,7 @@ def is_valid(vis, row_idx, col_idx):
     
     return True
 
+# Adapted BFS code from https://www.geeksforgeeks.org/breadth-first-traversal-bfs-on-a-2d-array/
 @njit
 def BFS_search(edge_array, row_idx, col_idx):
     '''
