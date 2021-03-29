@@ -33,7 +33,7 @@ When detecting the staff lines, we decided to implement a naive thresholding, wh
 #### Convolution
 We have tested with Sobel operators and Gaussians, and the results looked identical to code packages from CV2. Since we made it compatible with separable 1D kernels, it is safe to assume that the runtime performance should be improved over 2D kernels.
 
-#### Hamming Distance
+<!-- #### Hamming Distance -->
 
 
 #### Template Matching
@@ -64,5 +64,7 @@ Evidently, NJIT was highly instrumental in allowing our code to run in manageabl
 
 ### Future Work
 The first thing we could look at to improve is to provide a way to detect the clefs of each staff. This would make the note detection more consistent to the true values. 
+
+Our current output also has multiple overlapping boxes on the detected templates. We could mitigate this by using non-maximal suppression.
 
 We could also experiment with different threshold values that the user could adjust when applying on different images.
