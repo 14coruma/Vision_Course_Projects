@@ -478,7 +478,7 @@ def notes_to_txt(notes):
 
 if __name__ == '__main__':
     if len(sys.argv) < 2: exit("Error: missing filename")
-    detectMethod = sys.argv[2] if len(sys.argv) > 2 else 'd_matrix'
+    detectMethod = sys.argv[2] if len(sys.argv) > 2 else 'hamming'
     im = Image.open(sys.argv[1]).convert(mode='L')
 
     print("Detecting stave distance...")
