@@ -17,6 +17,9 @@ from numba import njit
 
 from PIL import Image, ImageDraw, ImageFont
 
+# TODO: Remove this. Use our convolve only
+from scipy.signal import convolve2d
+
 TEMPLATE_DIR = "./templates/"
 TEMPLATE_STAVE_DIST = 12
 TREBLE_CLEF = ['E','D','C','B','A','G','F']
@@ -97,7 +100,7 @@ def hough_voting(edges):
     acc = np.zeros((height, height//4))
     # Fill accumulator (each edge pixel casts vote for possible (row, spacing)
     for r in range(height):
-        if r%25 == 0: print("Iteration "+str(r)+"/"+str(height))
+        if r%25 == 0: print("  Iteration "+str(r)+"/"+str(height))
         for c in range(width):
             if edges[r,c] <= 0: continue
             # Only consider points that are part of a horizontal edge
@@ -177,7 +180,7 @@ def detect_stave_distance(im):
     
     #  edges = non_maximal_supression(edges)
     rows, staveDist = hough_voting(edges)
-    print("Found stave distance {} at rows {}".format(staveDist, rows))
+    print("  Found stave distance {} at row(s) {}".format(staveDist, rows))
     return staveDist, rows
 
 def scale_from_staves(im, staveDist):
@@ -196,7 +199,9 @@ def scale_from_staves(im, staveDist):
     scale = TEMPLATE_STAVE_DIST/staveDist
     return im.resize((int(im.width*scale), int(im.height*scale))), scale
 
-# Compute Hamming distance
+#
+# Methods for detecting using Hamming distance
+#
 @njit()
 def compute_hamming(I, T):
     M = T.shape[0]
@@ -223,6 +228,99 @@ def detect_symbols_using_hamming(I, T, score_thresh):
     indices = np.where(hamming_score_array > hamming_score_array.max()-score_thresh)
     return indices, (hamming_score_array / T.size)
 
+#
+# Methods for detecting using edges and D matrix
+#
+# Define an edge detector
+def edge_detector(I):
+    '''Input is a numpy array'''
+    # Prepare the kernels
+    a1 = np.matrix([1, 2, 1])
+    a2 = np.matrix([-1, 0, 1])
+    Kx = a1.T * a2
+    Ky = a2.T * a1
+    
+    # Apply the Sobel operator
+    Gx = convolve2d(I, Kx, "same", "symm")
+    Gy = convolve2d(I, Ky, "same", "symm")
+    G = np.sqrt(Gx**2 + Gy**2)
+    
+    return G
+
+@njit
+def is_valid(vis, row_idx, col_idx):
+    if(row_idx < 0 or col_idx < 0 or row_idx >= vis.shape[0] or col_idx >= vis.shape[1]):
+        return False
+    
+    if(vis[row_idx, col_idx]):
+        return False
+    
+    return True
+
+@njit
+def BFS_search(edge_array, row_idx, col_idx):
+    '''
+    edge_array: a binary map where value 1 indicates the edge pixel
+    start_pos: index for the pixel to check (row_idx, col_idx)
+    '''
+    # Initialize the visit array with False
+    visited_array = np.zeros(edge_array.shape)
+    q = []
+    q.append((row_idx, col_idx))
+    visited_array[row_idx, col_idx] = True
+    dist = None
+
+    dRow = [ -1, 0, 1, 0, -1, -1, 1, 1]
+    dCol = [ 0, 1, 0, -1, 1, -1, 1, -1]
+
+    while(len(q) > 0):
+        temp_cell = q[0]
+        q.pop(0)
+        x = temp_cell[0]
+        y = temp_cell[1]
+        
+        if (edge_array[x, y] > 0.99):
+            dist = np.sqrt(pow(x-row_idx, 2)+pow(y-col_idx, 2))
+            break
+        
+        for i in range(8):
+            adjx = x + dRow[i]
+            adjy = y + dCol[i]
+            if(is_valid(visited_array, adjx, adjy)):
+                q.append((adjx, adjy))
+                visited_array[adjx, adjy] = True
+    return dist
+
+@njit()
+def compute_D(I_edge):
+    D_row = I_edge.shape[0]
+    D_col = I_edge.shape[1]
+    
+    D = np.zeros((D_row, D_col))
+    
+    for i in range(D_row):
+        for j in range(D_col):
+            D[i, j] = BFS_search(I_edge, i, j)
+    return D
+
+def edge_matching_score(D, T_edge):
+    M = T_edge.shape[0]
+    K = T_edge.shape[1]
+    
+    score_row = D.shape[0] - M
+    score_col = D.shape[1] - K
+    score_array = np.zeros((score_row, score_col))
+    
+    for i in range(score_row):
+        for j in range(score_col):
+            temp_score = 0
+            for m in range(M):
+                for k in range(K):
+                    temp_score = temp_score + T_edge[m, k]*D[i+m, j+k]
+            score_array[i, j] = temp_score
+                
+    return score_array
+
 def indices_to_notes(indices, shape, noteType, staves, scale, confidence_array):
     notes = []
     for y,x in zip(indices[0], indices[1]):
@@ -236,8 +334,7 @@ def indices_to_notes(indices, shape, noteType, staves, scale, confidence_array):
         notes.append(note)
     return notes
 
-# TODO
-def detect_notes(imScaled, scale, staves):
+def detect_notes(imScaled, scale, staves, method='d_matrix'):
     '''
     Given appropriately scaled grayscale image of sheet music, detect notes
     and rests given templates. Adjust note postion/scale to match original
@@ -251,6 +348,8 @@ def detect_notes(imScaled, scale, staves):
         imScaled (2d np.array): scaled grayscale image of sheet music
         scale (float): image scaling factor
         staves (list): rows where all staves appear
+        method (str): Which approach to use to detect notes.
+            Options: ['hamming', 'd_matrix']
 
     Returns:
         notes (list): List of notes in original image. Each note should include:
@@ -265,15 +364,27 @@ def detect_notes(imScaled, scale, staves):
         'quarter_rest': eighthTemp
     }
 
+    # If using 'd-matrix' method, precompute D matrix
+    D = None
+    if method == 'd_matrix':
+        print("  Computing D-matrix...")
+        D = compute_D(edge_detector(imScaled))
+
     notes = []
-    for noteType, template in templates.items(): 
-        tempArea = template.shape[0] * template.shape[1]
-        indices, confidence_array = detect_symbols_using_hamming(imScaled, template, .10 * tempArea)
+    # Detect notes for each template
+    for noteType, template in templates.items():
+        indices, confidence_array = None, None
+        if method == 'hamming':
+            tempArea = template.shape[0] * template.shape[1]
+            indices, confidence_array = detect_symbols_using_hamming(imScaled, template, .10 * tempArea)
+        elif method == 'd_matrix':
+            confidence_array = edge_matching_score(D, edge_detector(template))
+            indices = np.where(confidence_array < confidence_array.min()+80)
+
         notes += indices_to_notes(
             indices, template.shape, noteType, staves, scale, confidence_array)
     return notes
 
-# TODO
 def visualize_notes(im, notes):
     '''
     Given original image and list of notes, create a new RGB image and
@@ -309,7 +420,6 @@ def visualize_notes(im, notes):
             d.text(ptext1, note[5], font=fnt, fill=color, align='left')
     return im
 
-# TODO
 def notes_to_txt(notes):
     '''
     Given list of notes, save them in a .txt file
@@ -326,13 +436,14 @@ def notes_to_txt(notes):
 
 if __name__ == '__main__':
     if len(sys.argv) < 2: exit("Error: missing filename")
+    detectMethod = sys.argv[2] if len(sys.argv) > 2 else 'd_matrix'
     im = Image.open(sys.argv[1]).convert(mode='L')
 
     print("Detecting stave distance...")
     staveDist, staves = detect_stave_distance(np.array(im, dtype=np.float64)/255)
     imScaled, scale = scale_from_staves(im, staveDist)
     print("Detecting notes...")
-    notes = detect_notes(np.array(imScaled)/255, scale, staves)
+    notes = detect_notes(np.array(imScaled)/255, scale, staves, detectMethod)
     visualize_notes(im, notes).save("detected.png")
     notes_to_txt(notes)
     print("Done.")
