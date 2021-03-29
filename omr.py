@@ -3,8 +3,7 @@
 # B657 Assignment 1
 # Code by Andrew Corum, Josep Han, Kenneth Zhang, Zheng Chen
 #
-# usage: python3 omr.py filename
-#
+# usage: python3 omr.py <filename> ['hamming', 'd_matrix']
 
 import sys
 import os
@@ -22,7 +21,7 @@ TEMPLATE_STAVE_DIST = 12
 TREBLE_CLEF = ['E','D','C','B','A','G','F']
 BASS_CLEF = ['G','F','E','D','C','B','A']
 
-#  @njit()
+# Referenced https://medium.com/analytics-vidhya/2d-convolution-using-python-numpy-43442ff5f381
 def convolve(image, kernel, padtype = 'edge'):
     # kernel needs to be flipped horizontally and vertically before applying convolution kernel; else it becomes cross-correlation.
     kernel = np.flipud(np.fliplr(kernel))
@@ -56,7 +55,6 @@ def convolve(image, kernel, padtype = 'edge'):
     # return final_image
     return final_image
 
-# @njit()
 def convolve_separable(im, kx, ky):    
     '''
     Given grayscale image, convolve with a separable kernel k = kx^T * ky
@@ -134,9 +132,10 @@ def hough_voting(edges):
     return rows, space
    
 # Reference (Canny): https://towardsdatascience.com/canny-edge-detection-step-by-step-in-python-computer-vision-b49c3a2d8123
+# Note: This is not used in the final version of our `omr.py` file. Leaving in here for reference.
 @njit()
-def non_maximal_supression(im):
-    # Apply non-maximal supression, in y direction only
+def non_maximal_suppression(im):
+    # Apply non-maximal suppression, in y direction only
     newIm = np.zeros(im.shape, dtype=np.float64)
     for r in range(1,im.shape[0]-1):
         for c in range(im.shape[1]):
@@ -174,8 +173,10 @@ def detect_stave_distance(im):
     # We only care about horizontal lines, so just use gradient in y direction
     sy = np.array([[1,2,1],[0,0,0],[-1,-2,-1]])
     edges = abs(convolve(im, sy))
-    
-    #  edges = non_maximal_supression(edges)
+   
+    # No longer using non_maximal suppression of edges
+    # (seemed to cause problems in our implementation)
+    # edges = non_maximal_suppression(edges)
     rows, staveDist = hough_voting(edges)
     print("  Found stave distance {} at row(s) {}".format(staveDist, rows))
     return staveDist, rows
