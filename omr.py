@@ -380,11 +380,11 @@ def detect_notes(imScaled, scale, staves, method='d_matrix'):
             indices, confidence_array = detect_symbols_using_hamming(imScaled, template, .10 * tempArea)
         elif method == 'd_matrix':
             confidence_array = edge_matching_score(D, edge_detector(template))
-            indices = np.where(confidence_array < confidence_array.min() + .14 * tempArea)
+            indices = np.where(confidence_array < .12 * tempArea)
 
         notes += indices_to_notes(
             indices, template.shape, noteType, staves, scale, confidence_array)
-    print("  Found {} notes/objects".format(len(notes)))
+    print("  Found {} notes".format(len(notes)))
     return notes
 
 def visualize_notes(im, notes):
