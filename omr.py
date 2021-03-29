@@ -303,6 +303,7 @@ def compute_D(I_edge):
             D[i, j] = BFS_search(I_edge, i, j)
     return D
 
+@njit()
 def edge_matching_score(D, T_edge):
     M = T_edge.shape[0]
     K = T_edge.shape[1]
