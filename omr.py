@@ -321,6 +321,8 @@ def edge_matching_score(D, T_edge):
                 
     return score_array
 
+# From indices of detected notes, format them into the desired format:
+# note = [row, col, height, width, symbol_type, pitch, confidence]
 def indices_to_notes(indices, shape, noteType, staves, scale, confidence_array):
     notes = []
     for y,x in zip(indices[0], indices[1]):
@@ -332,6 +334,38 @@ def indices_to_notes(indices, shape, noteType, staves, scale, confidence_array):
             noteType, pitch, confidence_array[y][x]
         ]
         notes.append(note)
+    return notes
+
+# Given list of notes, suppress overlapping notes with lower confidence
+def suppress_overlapping_notes(notes):
+    # Check if n1 overlaps any neighboring note (n2)
+    # If it does, and it has a lower score, remove n1
+    lastNum = len(notes)+1
+    while lastNum > len(notes):
+        lastNum = len(notes)
+        for n1 in notes:
+            for n2 in notes:
+                if n1 == n2: continue
+                # Position of note1:
+                p11,p12 = (n1[1], n1[0]), (n1[1]+n1[3], n1[0]+n1[2])
+                p13,p14 = (p11[0],p12[1]), (p12[0],p11[1])
+                # position of note2:
+                p21,p22 = (n2[1], n2[0]), (n2[1]+n2[3], n2[0]+n2[2])
+                p23,p24 = (p21[0],p22[1]), (p22[0],p21[1])
+
+                inside = False
+                # Check if p11 is within note2
+                inside |= p21[0] <= p11[0] <= p22[0] and p21[1] <= p11[1] <= p22[1]
+                # Check if p12 is within note2
+                inside |= p21[0] <= p12[0] <= p22[0] and p21[1] <= p12[1] <= p22[1]
+                # Check if p13 is within note2
+                inside |= p23[0] <= p13[0] <= p24[0] and p24[1] <= p13[1] <= p23[1]
+                # Check if p14 is within note2
+                inside |= p23[0] <= p14[0] <= p24[0] and p24[1] <= p14[1] <= p23[1]
+        
+                if inside and n1[6] <= n2[6] and n1[4] == n2[4]:
+                    notes.remove(n1)
+                    break
     return notes
 
 def detect_notes(imScaled, scale, staves, method='d_matrix'):
@@ -377,14 +411,19 @@ def detect_notes(imScaled, scale, staves, method='d_matrix'):
         indices, confidence_array = None, None
         tempArea = template.shape[0] * template.shape[1]
         if method == 'hamming':
-            indices, confidence_array = detect_symbols_using_hamming(imScaled, template, .10 * tempArea)
+            thresh = .14 if noteType == 'filled_note' else .02
+            indices, confidence_array = detect_symbols_using_hamming(imScaled, template, thresh * tempArea)
         elif method == 'd_matrix':
             confidence_array = edge_matching_score(D, edge_detector(template))
             indices = np.where(confidence_array < .12 * tempArea)
 
         notes += indices_to_notes(
             indices, template.shape, noteType, staves, scale, confidence_array)
-    print("  Found {} notes".format(len(notes)))
+
+    print("  Detected {} notes".format(len(notes)))
+    print("  Suppressing non-maximal notes...")
+    notes = suppress_overlapping_notes(notes)
+    print("  Found {} unique notes".format(len(notes)))
     return notes
 
 def visualize_notes(im, notes):
