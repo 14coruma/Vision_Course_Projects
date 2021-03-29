@@ -25,7 +25,7 @@ The outputs should be two files:
 ### Design Decisions and Assumptions
 As the assignment states, we assume that the music lines from the image are parallel and straight. This is in order to implement the Hough Transform for line detection. We also assumed that every lines are in treble clef. This is because the assignment did not provide a template model for treble or bass clefs. 
 
-When applying convolutions, we assumed that the padding of the image should repeat the values found at the edges. This prevented the darkened halo effect on both our template images as well as the music sheets when applying Gaussians or Sobel kernels.
+When applying convolutions, we assumed that the padding of the image should repeat the values found at the edges. This prevented the darkened halo effect on our template images as well as the music sheets when applying Gaussians or Sobel kernels.
 
 When detecting the staff lines, we decided to implement a naive thresholding, where if the pixel value is less than 78% (100% being white), then we convert that pixel to 0. This significantly helped the Hough Transform algorithm as there were less ambiguous pixels when applying the Sobel operator and non-maximal suppression.
 
@@ -39,7 +39,7 @@ We have tested with Sobel operators and Gaussians, and the results looked identi
 #### Template Matching
 The Hamming Distance calculation was not hard to implement, since it checks every pixel of the template with the given area of the image, much like convolution. However, we noticed that this would result in a less accurate note detection, where things like the circle in the treble clef would count as a note. 
 
-The alternate approach suggested we take the edge maps of the image and templates before calculating the template matching values in a slightly different way. We found that this implementation is much slower compared to the Hamming distance method. But the accuracy of the template matching seems to perform better than with Hamming Distance for some instances such as eighth note detection. On the other hand, regular note template matching worked better on Hamming in our experiments.
+The alternate approach suggested we take the edge maps of the image and templates before calculating the template matching values in a slightly different way. We found that this implementation is much slower compared to the Hamming distance method. But the accuracy of the template matching seems to perform better than with Hamming Distance on noisier images, like music3.png. On the other hand, Hamming performed better on music1.png in our experiments. It appears that third interval note pairs do not perform well for the D_matrix.
 
 
 
