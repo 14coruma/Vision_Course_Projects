@@ -25,7 +25,7 @@ The outputs should be two files:
 ![output](detected.png)
 
 ### Design Decisions and Assumptions
-As the assignment states, we assume that the music lines from the image are parallel and straight. This is in order to implement the Hough Transform for line detection. We also assumed that every lines are in treble clef. This is because the assignment did not provide a template model for treble or bass clefs. 
+As the assignment states, we assume that the music lines from the image are parallel and straight. This is in order to implement the Hough Transform for line detection. We also assumed that every lines are in treble clef. This is because the assignment did not provide a template model for treble or bass clefs. It is also important to note that many times, nearly all of the notes are labeled incorrectly. This is becuase, if the Hough Transform incorrectly labels the starting row of a stave, then all notes on that stave will be incorrect. In the image above, you can see that the notes in the top stave are all off by 1 position. But the notes in the bottom stave are correct (assuming Treble Clef, nto Bass Clef).
 
 When applying convolutions, we assumed that the padding of the image should repeat the values found at the edges. This prevented the darkened halo effect on both our template images as well as the music sheets when applying Gaussians or Sobel kernels.
 
@@ -33,7 +33,7 @@ When detecting the staff lines, we decided to implement a naive thresholding, wh
 
 ![output](music1_acc.PNG)
 
-The figure above shows the accumulator used by the Hough Transform on `images/music1.png`. The y axis represents the row of a stave, and the x axis is the spacing between the five staff lines.
+The figure above shows the accumulator used by the Hough Transform on `images/music1.png`. The y axis represents the starting row of a stave, and the x axis is the spacing between the five staff lines.
 From this image, you can see two major groupings (due to `music1.png` containing two staves). Addionally, the two brightest areas of these groupings occur at the same x location (which represents a staff line distance of 12 pixels).
 
 ### Performance of algorithms
